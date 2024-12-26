@@ -32,7 +32,7 @@ func main() {
 	r.POST("/getCase", controllers.GetCase)
 
 	// Start the server
-	if err := r.RunTLS("0.0.0.0:8080", "combined.crt", "csr_cnaf_2024_2025.key"); err != nil {
+	if err := r.RunTLS("0.0.0.0:8686", "combined.crt", "csr_cnaf_2024_2025.key"); err != nil {
 		log.Fatalf("Failed to run server: %v", err)
 	}
 }
