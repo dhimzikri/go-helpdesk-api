@@ -282,16 +282,16 @@ func GetTblStatus(c *gin.Context) {
 	for rows.Next() {
 		var (
 			statusID    int
-			isActive    string
 			statusName  string
-			value       *string // Pointer to handle NULL
-			description *string // Pointer to handle NULL
 			usrUpd      *string // Pointer to handle NULL
 			dtmUpd      *string // Pointer to handle NULL
+			value       *string // Pointer to handle NULL
+			isActive    *string
+			description *string // Pointer to handle NULL
 		)
 
 		if err := rows.Scan(
-			&statusID, &isActive, &statusName, &value, &description, &usrUpd, &dtmUpd,
+			&statusID, &statusName, &usrUpd, &dtmUpd, &value, &isActive, &description,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 			return
@@ -299,12 +299,12 @@ func GetTblStatus(c *gin.Context) {
 
 		msg = append(msg, map[string]interface{}{
 			"statusid":    statusID,
-			"isactive":    isActive,
 			"statusname":  statusName,
-			"value":       getStringOrNil(value),       // Helper function for NULL
+			"usrupd":      getStringOrNil(usrUpd), // Helper function for NULL
+			"dtmupd":      getStringOrNil(dtmUpd), // Helper function for NULL
+			"value":       getStringOrNil(value),  // Helper function for NULL
+			"isactive":    getStringOrNil(isActive),
 			"description": getStringOrNil(description), // Helper function for NULL
-			"usrupd":      getStringOrNil(usrUpd),      // Helper function for NULL
-			"dtmupd":      getStringOrNil(dtmUpd),      // Helper function for NULL
 		})
 	}
 
