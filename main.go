@@ -27,9 +27,11 @@ func main() {
 
 	// CRUD endpoints
 	r.GET("/gettblType", controllers.GetTblType)
-	r.POST("/gettblType", controllers.GetTblType)
-	r.GET("/getCase", controllers.GetCase)
-	r.POST("/getCase", controllers.GetCase)
+	// r.GET("/getCase", controllers.GetCase)
+	r.GET("/getPri", controllers.GetTblPriority)
+	r.GET("/getBranch", controllers.GetBranch)
+	r.GET("/getRelation", controllers.GetRelation)
+	r.GET("/getStatus", controllers.GetTblStatus)
 
 	// Start the server
 	if err := r.RunTLS("0.0.0.0:8686", "combined.crt", "csr_cnaf_2024_2025.key"); err != nil {
