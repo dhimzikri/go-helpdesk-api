@@ -1,47 +1,36 @@
 package config
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
-	"os"
 
-	"github.com/joho/godotenv"
-	_ "github.com/denisenkom/go-mssqldb"
+	"gorm.io/driver/sqlserver"
+	"gorm.io/gorm"
 )
 
-var DB *sql.DB
+var (
+	DB *gorm.DB
+	// DB2 *gorm.DB
+)
 
-func InitDB() {
-	// Load environment variables
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
+func ConnectDB() {
+	dbHost := "172.16.6.31"
+	dbPort := "1433"
+	dbUser := "sa"
+	dbPass := "pass,123"
+
+	connectToDB := func(dbName string) *gorm.DB {
+		connection := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%s;database=%s;encrypt=disable", dbHost, dbUser, dbPass, dbPort, dbName)
+		db, err := gorm.Open(sqlserver.Open(connection), &gorm.Config{SkipDefaultTransaction: true})
+
+		if err != nil {
+			panic(fmt.Sprintf("Failed to connect to %s database: %s", dbName, err))
+		}
+
+		log.Printf("Connected to %s database succesfully\n", dbName)
+		return db
 	}
 
-	// Retrieve database configuration
-	dbUser := os.Getenv("DB_USER")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-	dbName := os.Getenv("DB_NAME")
-
-	// Build connection string
-	connString := fmt.Sprintf("sqlserver://%s:%s@%s:%s?database=%s&encrypt=true&TrustServerCertificate=true",
-		dbUser, dbPassword, dbHost, dbPort, dbName)
-
-	// Open database connection
-	var errDB error
-	DB, errDB = sql.Open("sqlserver", connString)
-	if errDB != nil {
-		log.Fatalf("Failed to connect to database: %v", errDB)
-	}
-
-	// Test connection
-	errDB = DB.Ping()
-	if errDB != nil {
-		log.Fatalf("Failed to ping database: %v", errDB)
-	}
-
-	log.Println("Connected to database!")
+	DB = connectToDB("Portal_HelpDesk_CS")
+	// DB2 = connectToDB("Portal_EXT_CNAF_Mobile")
 }
