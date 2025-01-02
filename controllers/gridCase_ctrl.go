@@ -296,6 +296,8 @@ func GetSubType(c *gin.Context) {
 }
 
 // GetCases retrieves cases with pagination, search, and total count
+var caseCache = cache.New(5*time.Minute, 10*time.Minute)
+
 func GetCase(c *gin.Context) {
 	// Get page number and limit from query parameters
 	page := c.DefaultQuery("page", "1")
@@ -339,6 +341,16 @@ func GetCase(c *gin.Context) {
 
 	// Combine conditions with "AND"
 	whereClause := strings.Join(conditions, " AND ")
+
+	// Generate a unique cache key based on query parameters
+	cacheKey := fmt.Sprintf("cases_page_%d_limit_%d_conditions_%s", pageNum, limitNum, whereClause)
+
+	// Check if the data is already in the cache
+	if cachedData, found := caseCache.Get(cacheKey); found {
+		// Return cached data
+		c.JSON(http.StatusOK, cachedData)
+		return
+	}
 
 	// Build SQL query for counting total records
 	sqlCount := fmt.Sprintf(`
@@ -387,9 +399,15 @@ func GetCase(c *gin.Context) {
 		return
 	}
 
-	// Return the results in JSON format
-	c.JSON(http.StatusOK, gin.H{
+	// Prepare the response
+	response := gin.H{
 		"total": totalCount,
 		"cases": cases,
-	})
+	}
+
+	// Store the response in cache
+	caseCache.Set(cacheKey, response, cache.DefaultExpiration)
+
+	// Return the results in JSON format
+	c.JSON(http.StatusOK, response)
 }
