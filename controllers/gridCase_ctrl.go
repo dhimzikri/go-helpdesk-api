@@ -5,8 +5,10 @@ import (
 	"golang-sqlserver-app/config"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/patrickmn/go-cache"
 )
 
 func GetTblType(c *gin.Context) {
@@ -157,12 +159,24 @@ func GetTblStatus(c *gin.Context) {
 	})
 }
 
+// Initialize the cache with a default expiration of 5 minutes and cleanup interval of 10 minutes
+var c = cache.New(5*time.Minute, 10*time.Minute)
+
+// ExecuteStoredProcedure executes the stored procedure with caching
 func ExecuteStoredProcedure(flagCompany string, searchParams map[string]string) ([]map[string]interface{}, error) {
 	db := config.GetDB() // Get the database connection
 
-	whereClause := "0=0"
+	// Create a unique cache key based on flagCompany and searchParams
+	cacheKey := fmt.Sprintf("%s-%v", flagCompany, searchParams)
 
-	// Add dynamic conditions
+	// Check if the result is already in the cache
+	if cachedResult, found := c.Get(cacheKey); found {
+		fmt.Println("Cache hit")
+		return cachedResult.([]map[string]interface{}), nil
+	}
+
+	// Build the where clause dynamically based on search parameters
+	whereClause := "0=0"
 	if agreementNo, ok := searchParams["agreementno"]; ok && agreementNo != "" {
 		whereClause += fmt.Sprintf(" and a.agreementno like '%%%s%%'", escapeSingleQuotes(agreementNo))
 	}
@@ -181,7 +195,7 @@ func ExecuteStoredProcedure(flagCompany string, searchParams map[string]string) 
 	}
 	defer rows.Close()
 
-	// Parse results
+	// Parse the results from the query
 	var results []map[string]interface{}
 	for rows.Next() {
 		columns, _ := rows.Columns()
@@ -198,6 +212,9 @@ func ExecuteStoredProcedure(flagCompany string, searchParams map[string]string) 
 		results = append(results, row)
 	}
 
+	// Store the result in the cache for future use
+	c.Set(cacheKey, results, cache.DefaultExpiration)
+
 	return results, nil
 }
 
@@ -206,7 +223,7 @@ func escapeSingleQuotes(input string) string {
 	return strings.ReplaceAll(input, "'", "''")
 }
 
-// GetInfoHandler handles the API request for executing the stored procedure
+// GetInfoHandler handles the API request for executing the stored procedure with caching
 func GetInfoHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get query parameters

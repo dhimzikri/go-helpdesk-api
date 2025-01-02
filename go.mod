@@ -4,7 +4,10 @@ go 1.23.0
 
 require gorm.io/gorm v1.25.12
 
-require github.com/microsoft/go-mssqldb v1.7.2 // indirect
+require (
+	github.com/microsoft/go-mssqldb v1.7.2 // indirect
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
+)
 
 require (
 	github.com/bytedance/sonic v1.12.6 // indirect
