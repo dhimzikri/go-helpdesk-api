@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"golang-sqlserver-app/config"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -163,7 +164,7 @@ func GetTblStatus(c *gin.Context) {
 var c = cache.New(5*time.Minute, 10*time.Minute)
 
 // ExecuteStoredProcedure executes the stored procedure with caching
-func ExecuteStoredProcedure(flagCompany string, searchParams map[string]string) ([]map[string]interface{}, error) {
+func ReadAgreement(flagCompany string, searchParams map[string]string) ([]map[string]interface{}, error) {
 	db := config.GetDB() // Get the database connection
 
 	// Create a unique cache key based on flagCompany and searchParams
@@ -224,7 +225,7 @@ func escapeSingleQuotes(input string) string {
 }
 
 // GetInfoHandler handles the API request for executing the stored procedure with caching
-func GetInfoHandler() gin.HandlerFunc {
+func AgreementNoHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get query parameters
 		flagCompany := c.Query("flagcompany")
@@ -235,7 +236,7 @@ func GetInfoHandler() gin.HandlerFunc {
 		}
 
 		// Call the stored procedure
-		results, err := ExecuteStoredProcedure(flagCompany, searchParams)
+		results, err := ReadAgreement(flagCompany, searchParams)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -244,4 +245,119 @@ func GetInfoHandler() gin.HandlerFunc {
 		// Return the results as JSON
 		c.JSON(http.StatusOK, results)
 	}
+}
+
+func GetContact(c *gin.Context) {
+	// Define a slice of maps to hold the query results
+	var results []map[string]interface{}
+
+	// Execute the query using GORM's raw SQL method
+	if err := config.DB.Table("Contact").Find(&results).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	// Check if any data was retrieved
+	if len(results) == 0 {
+		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
+		return
+	}
+
+	// Return the results as JSON
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"total":   len(results),
+		"data":    results,
+	})
+}
+
+func GetSubType(c *gin.Context) {
+	// Define a slice of maps to hold the query results
+	var results []map[string]interface{}
+
+	// Execute the query using GORM's raw SQL method
+	if err := config.DB.Table("tblSubType").Find(&results).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	// Check if any data was retrieved
+	if len(results) == 0 {
+		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
+		return
+	}
+
+	// Return the results as JSON
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"total":   len(results),
+		"data":    results,
+	})
+}
+
+func GetCase(c *gin.Context) {
+	// Get page number and limit from query parameters
+	page := c.DefaultQuery("page", "1")
+	limit := c.DefaultQuery("limit", "30")
+
+	// Convert page and limit to integers
+	pageNum, limitNum := 1, 30
+	pageNum, _ = strconv.Atoi(page)
+	limitNum, _ = strconv.Atoi(limit)
+
+	// Calculate offset for pagination
+	offset := (pageNum - 1) * limitNum
+
+	// Build SQL query for counting total records
+	sqlCount := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM [Case] a
+		INNER JOIN tbltype b ON a.TypeID = b.TypeID
+		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
+		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
+		INNER JOIN status e ON a.statusid = e.statusid
+		INNER JOIN contact f ON a.contactid = f.contactid
+		INNER JOIN relation g ON a.relationid = g.relationid
+		WHERE a.statusid <> 1 AND a.usrupd = '%s'
+	`, "8023")
+
+	var totalCount int64
+	if err := config.DB.Raw(sqlCount).Scan(&totalCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count total records"})
+		return
+	}
+
+	// Build SQL query for fetching paginated data
+	sqlQuery := fmt.Sprintf(`
+		SELECT 
+			ROW_NUMBER() OVER (ORDER BY RIGHT(a.ticketno, 3) DESC) AS RowNumber,
+			a.flagcompany, a.ticketno, a.agreementno, a.applicationid, a.customerid,
+			a.typeid, b.description AS typedescriontion, a.subtypeid, c.SubDescription AS typesubdescriontion,
+			a.priorityid, d.Description AS prioritydescription, a.statusid, e.statusname,
+			e.description AS statusdescription, a.customername, a.branchid, a.description, a.phoneno,
+			a.email, a.usrupd, a.dtmupd, a.date_cr, f.contactid, f.Description AS contactdescription,
+			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.email_, a.foragingdays
+		FROM [Case] a
+		INNER JOIN tbltype b ON a.TypeID = b.TypeID
+		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
+		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
+		INNER JOIN status e ON a.statusid = e.statusid
+		INNER JOIN contact f ON a.contactid = f.contactid
+		INNER JOIN relation g ON a.relationid = g.relationid
+		WHERE a.statusid <> 1 AND a.usrupd = '%s'
+		ORDER BY RIGHT(a.ticketno, 3) DESC
+		OFFSET %d ROWS FETCH NEXT %d ROWS ONLY
+	`, "8023", offset, limitNum)
+
+	var cases []map[string]interface{}
+	if err := config.DB.Raw(sqlQuery).Scan(&cases).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch case data"})
+		return
+	}
+
+	// Return the results in JSON format
+	c.JSON(http.StatusOK, gin.H{
+		"total": totalCount,
+		"cases": cases,
+	})
 }
