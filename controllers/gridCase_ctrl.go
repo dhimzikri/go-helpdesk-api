@@ -411,3 +411,80 @@ func GetCase(c *gin.Context) {
 	// Return the results in JSON format
 	c.JSON(http.StatusOK, response)
 }
+
+func SaveCase(c *gin.Context) {
+	var trancodeid string
+	var nextID int
+	var statusDescription string
+
+	// Step 1: Check if status '2' exists in the status table
+	config.DB.Raw("SELECT statusname FROM status WHERE statusid = ?", "2").Row().Scan(&statusDescription)
+
+	// Step 2: Insert a case using sp_insertcase equivalent raw SQL
+	err := config.DB.Exec(`
+		EXEC sp_insertcase 
+			'', 'cnaf', '410', '410101100562', '410A201107002013', '41000003166', 
+			'M WAHYUDIN', '082299840427', 'info@cnaf.co.id', '2', '1', '25', '1', 
+			'tesForGo', '8023', '1', '1', '', '8080', 'info@cnaf.co.id', 
+			'2025-01-02', '2025-01-02', ?`, &trancodeid).Error
+
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Step 3: Log the insert into tbllog
+	logQuery := fmt.Sprintf(`
+		INSERT INTO tbllog ([tgl], [table_name], [menu], [script]) 
+		SELECT GETDATE(), '[case]', 'gridcase', 
+		'exec sp_insertcase , cnaf, 410, 410101100562, 410A201107002013, 41000003166, 
+		M WAHYUDIN, 082299840427, info@cnaf.co.id, 2, 1, 25, 1, tesForGo, 8023, 
+		1, 1, , 8080, info@cnaf.co.id, 2025-01-02, 2025-01-02'
+	`)
+	err = config.DB.Exec(logQuery).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Step 4: Get next ID for Case_History table based on TicketNo
+	config.DB.Raw("SELECT IFNULL(MAX(id), 0) + 1 FROM Case_History WHERE TicketNo = ?", trancodeid).Row().Scan(&nextID)
+
+	// Step 5: Insert into Case_History if not already present with statusid '2'
+	var count int
+	config.DB.Raw("SELECT COUNT(*) FROM Case_History WHERE TicketNo = ? AND StatusID = '2'", trancodeid).Row().Scan(&count)
+
+	if count == 0 {
+		// Insert into Case_History table
+		err = config.DB.Exec(`
+			INSERT INTO Case_History (id, ticketno, description, statusid, usrupd)
+			VALUES (?, ?, ?, '2', '8023')`, nextID, trancodeid, statusDescription).Error
+
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	// Step 6: Update the status of the case to '2'
+	err = config.DB.Exec("UPDATE [case] SET statusid = '2' WHERE TicketNo = ?", trancodeid).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Step 7: Log the case update to tbllog
+	err = config.DB.Exec(logQuery).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Return the transaction ID as a response
+	c.JSON(200, gin.H{"message": "Transaction created successfully"})
+}
+
+// Dummy function to represent email sending
+// func SendEmail(subject, body, recipient string) {
+// 	log.Printf("Email sent to %s with subject: %s\n", recipient, subject)
+// }
