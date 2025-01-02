@@ -32,7 +32,7 @@ func main() {
 	r.GET("/getBranch", controllers.GetBranch)
 	r.GET("/getRelation", controllers.GetRelation)
 	r.GET("/getStatus", controllers.GetTblStatus)
-	r.GET("/getAgreement", controllers.ReadGetAgreementNo)
+	r.GET("/getAgreement", controllers.GetInfoHandler())
 
 	// Start the server
 	if err := r.RunTLS("0.0.0.0:8686", "combined.crt", "csr_cnaf_2024_2025.key"); err != nil {

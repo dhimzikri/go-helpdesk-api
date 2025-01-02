@@ -34,3 +34,10 @@ func ConnectDB() {
 	DB = connectToDB("Portal_HelpDesk_CS")
 	// DB2 = connectToDB("Portal_EXT_CNAF_Mobile")
 }
+
+func GetDB() *gorm.DB {
+	if DB == nil {
+		ConnectDB()
+	}
+	return DB
+}

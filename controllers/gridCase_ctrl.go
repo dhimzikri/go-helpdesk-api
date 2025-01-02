@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"golang-sqlserver-app/config"
 	"net/http"
 	"strings"
@@ -156,221 +157,74 @@ func GetTblStatus(c *gin.Context) {
 	})
 }
 
-func ReadGetAgreementNo(c *gin.Context) {
-	// Parse request parameters
-	query := c.Query("query")             // ?query=value
-	col := c.Query("col")                 // ?col=column_name
-	flagCompany := c.Query("flagcompany") // ?flagcompany=value
-	agreementNo := strings.TrimSpace(c.Query("agreementno"))
-	applicationID := strings.TrimSpace(c.Query("applicationid"))
-	customerName := strings.TrimSpace(c.Query("customername"))
+func ExecuteStoredProcedure(flagCompany string, searchParams map[string]string) ([]map[string]interface{}, error) {
+	db := config.GetDB() // Get the database connection
 
-	// Build dynamic WHERE clause
-	src := "0=0 AND " +
-		"a.agreementno LIKE ? AND " +
-		"a.applicationid LIKE ? AND " +
-		"b.name LIKE ?"
+	whereClause := "0=0"
 
-	if query != "" && col != "" {
-		src += " AND " + col + " LIKE ?"
+	// Add dynamic conditions
+	if agreementNo, ok := searchParams["agreementno"]; ok && agreementNo != "" {
+		whereClause += fmt.Sprintf(" and a.agreementno like '%%%s%%'", escapeSingleQuotes(agreementNo))
+	}
+	if customerName, ok := searchParams["customername"]; ok && customerName != "" {
+		whereClause += fmt.Sprintf(" and b.name like '%%%s%%'", escapeSingleQuotes(customerName))
 	}
 
-	// Build SQL query
-	sqlStr := "EXEC sp_getInformation ?, ?"
-
-	// Define parameters for the SQL query
-	params := []interface{}{
-		flagCompany,
-		src,
-		"%" + agreementNo + "%",
-		"%" + applicationID + "%",
-		"%" + customerName + "%",
-	}
-
-	if query != "" && col != "" {
-		params = append(params, "%"+query+"%")
-	}
+	// Correctly escape the query
+	query := fmt.Sprintf("EXEC sp_getInformation @flagcompany = '%s', @where = '%s'",
+		escapeSingleQuotes(flagCompany), escapeSingleQuotes(whereClause))
 
 	// Execute the query
-	var results []map[string]interface{}
-	err := config.DB.Raw(sqlStr, params...).Scan(&results).Error
+	rows, err := db.Raw(query).Rows()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
-		return
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer rows.Close()
+
+	// Parse results
+	var results []map[string]interface{}
+	for rows.Next() {
+		columns, _ := rows.Columns()
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range values {
+			valuePtrs[i] = &values[i]
+		}
+		rows.Scan(valuePtrs...)
+		row := make(map[string]interface{})
+		for i, col := range columns {
+			row[col] = values[i]
+		}
+		results = append(results, row)
 	}
 
-	// Check if data was retrieved
-	if len(results) == 0 {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"total":   0,
-			"data":    []map[string]interface{}{},
-		})
-		return
-	}
-
-	// Return the results
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"total":   len(results),
-		"data":    results,
-	})
+	return results, nil
 }
 
-// 	// Build the dynamic SQL condition based on provided filters
-// 	src := "1=1"
-// 	args := []interface{}{flagCompany}
+// escapeSingleQuotes escapes single quotes in strings
+func escapeSingleQuotes(input string) string {
+	return strings.ReplaceAll(input, "'", "''")
+}
 
-// 	// Handle agreementNo filter
-// 	if agreementNo != "" {
-// 		src += " AND a.agreementno LIKE @agreementNo"
-// 		args = append(args, "%"+agreementNo+"%")
-// 	}
+// GetInfoHandler handles the API request for executing the stored procedure
+func GetInfoHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get query parameters
+		flagCompany := c.Query("flagcompany")
+		searchParams := map[string]string{
+			"agreementno":   c.Query("agreementno"),
+			"applicationid": c.Query("applicationid"),
+			"customername":  c.Query("customername"),
+		}
 
-// 	// Handle applicationID filter
-// 	if applicationID != "" {
-// 		src += " AND a.applicationid LIKE @applicationID"
-// 		args = append(args, "%"+applicationID+"%")
-// 	}
+		// Call the stored procedure
+		results, err := ExecuteStoredProcedure(flagCompany, searchParams)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 
-// 	// Handle customerName filter
-// 	if customerName != "" {
-// 		src += " AND b.name LIKE @customerName"
-// 		args = append(args, "%"+customerName+"%")
-// 	}
-
-// 	// Handle query and col filter
-// 	if query != "" && col != "" {
-// 		src += " AND " + col + " LIKE @query"
-// 		args = append(args, "%"+query+"%")
-// 	}
-
-// 	// Construct the SQL query string with parameter declarations
-// 	sqlStr := `
-// 		DECLARE @flagCompany VARCHAR(255)
-// 		DECLARE @src VARCHAR(MAX)
-
-// 		SET @flagCompany = @flagCompany
-// 		SET @src = @src
-// 		EXEC sp_getInformation @flagCompany, @src, @agreementNo, @applicationID, @customerName, @query
-// 	`
-
-// 	// Prepare and execute the query
-// 	rows, err := config.DB.Query(sqlStr, args...)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
-// 		return
-// 	}
-// 	defer rows.Close()
-
-// 	// Parse the results into a slice of maps
-// 	var msg []AgreementInfo
-// 	for rows.Next() {
-// 		var agreement AgreementInfo
-// 		// Use the correct field order and types for your query result
-// 		if err := rows.Scan(
-// 			&agreement.FlagCompany,
-// 			&agreement.customerid,
-// 			&agreement.BranchID,
-// 			&agreement.BranchName,
-// 			&agreement.AgreementNo,
-// 			&agreement.CustomerType,
-// 			&agreement.DOB,
-// 			&agreement.NamaIbuKandung,
-// 			&agreement.MerkTypeKendaraan,
-// 			&agreement.NamaDebitur,
-// 			&agreement.Alamat,
-// 			&agreement.Phone,
-// 			&agreement.Nopol,
-// 			&agreement.ContractStatus,
-// 			&agreement.ApplicationID,
-// 			&agreement.PhoneNumber,
-// 			&agreement.Email,
-// 		); err != nil {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
-// 			return
-// 		}
-
-// 		msg = append(msg, agreement)
-// 	}
-
-// 	// Check if any data was retrieved
-// 	if len(msg) == 0 {
-// 		c.JSON(http.StatusOK, gin.H{"success": false})
-// 		return
-// 	}
-
-// 	// Return the results as JSON
-// 	c.JSON(http.StatusOK, gin.H{
-// 		"success": true,
-// 		"total":   len(msg),
-// 		"data":    msg,
-// 	})
-// }
-
-// func GetAgreementNo(c *gin.Context) {
-// 	query := c.Query("query")
-// 	col := c.Query("col")
-// 	flagCompany := c.Query("flagcompany")
-
-// 	src := "0=0"
-// 	args := []interface{}{}
-// 	if query != "" && col != "" {
-// 		src += " AND " + col + " LIKE ?"
-// 		args = append(args, "%"+query+"%")
-// 	}
-
-// 	sqlStr := "EXEC sp_getInformation ?, ?"
-// 	rows, err := config.DB.Raw(sqlStr, flagCompany, src)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
-// 		return
-// 	}
-// 	defer rows.Close()
-
-// 	// Handle parsing and returning data
-// 	var msg []map[string]interface{}
-// 	for rows.Next() {
-// 		var flagcompany, branchname, agreementno, customertype, dob, nama_ibu_kandung, merk_type_kendaraan, nama_debitur, alamat, contractstatus, email string
-// 		var customerid, branchid, phone, nopol, applicationid, phonenumber int
-// 		// var isactive bool
-
-// 		if err := rows.Scan(&flagcompany, &customerid, &branchid, &branchname,
-// 			&agreementno, &customertype, &dob, &nama_ibu_kandung, &merk_type_kendaraan,
-// 			&nama_debitur, &alamat, &phone, &nopol, &contractstatus, &applicationid, &phonenumber, &email); err != nil {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
-// 			return
-// 		}
-
-// 		msg = append(msg, map[string]interface{}{
-// 			"flagcompany":         flagcompany,
-// 			"customerid":          customerid,
-// 			"branchid":            branchid,
-// 			"branchname":          branchname,
-// 			"agreementno":         agreementno,
-// 			"customertype":        customertype,
-// 			"dob":                 dob,
-// 			"nama_ibu_kandung":    nama_ibu_kandung,
-// 			"merk_type_kendaraan": merk_type_kendaraan,
-// 			"nama_debitur":        nama_debitur,
-// 			"alamat":              alamat,
-// 			"phone":               phone,
-// 			"nopol":               nopol,
-// 			"contractstatus":      contractstatus,
-// 			"applicationid":       applicationid,
-// 			"phonenumber":         phonenumber,
-// 			"email":               email,
-// 		})
-// 	}
-
-// 	if len(msg) == 0 {
-// 		c.JSON(http.StatusOK, gin.H{"success": false})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{
-// 		"success": true,
-// 		"total":   len(msg),
-// 		"data":    msg,
-// 	})
-// }
+		// Return the results as JSON
+		c.JSON(http.StatusOK, results)
+	}
+}
