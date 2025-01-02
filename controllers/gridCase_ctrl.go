@@ -295,6 +295,7 @@ func GetSubType(c *gin.Context) {
 	})
 }
 
+// GetCases retrieves cases with pagination, search, and total count
 func GetCase(c *gin.Context) {
 	// Get page number and limit from query parameters
 	page := c.DefaultQuery("page", "1")
@@ -308,6 +309,37 @@ func GetCase(c *gin.Context) {
 	// Calculate offset for pagination
 	offset := (pageNum - 1) * limitNum
 
+	// Build dynamic WHERE conditions for search
+	var conditions []string
+
+	// Define a map of query parameters and their corresponding database fields
+	fields := map[string]string{
+		"ticketno":      "a.ticketno",
+		"agreementno":   "a.agreementno",
+		"applicationid": "a.applicationid",
+		"customername":  "a.customername",
+		"priority":      "d.Description",
+		"status":        "e.statusname",
+		"usrupd":        "a.usrupd",
+	}
+
+	// Iterate over the map and add conditions dynamically
+	for param, field := range fields {
+		if value := c.Query(param); value != "" {
+			if param == "usrupd" { // Handle exact match for usrupd
+				conditions = append(conditions, fmt.Sprintf("%s = '%s'", field, value))
+			} else { // Handle LIKE conditions for other fields
+				conditions = append(conditions, fmt.Sprintf("%s LIKE '%%%s%%'", field, value))
+			}
+		}
+	}
+
+	// Default condition
+	conditions = append(conditions, "a.statusid <> 1")
+
+	// Combine conditions with "AND"
+	whereClause := strings.Join(conditions, " AND ")
+
 	// Build SQL query for counting total records
 	sqlCount := fmt.Sprintf(`
 		SELECT COUNT(*)
@@ -318,8 +350,8 @@ func GetCase(c *gin.Context) {
 		INNER JOIN status e ON a.statusid = e.statusid
 		INNER JOIN contact f ON a.contactid = f.contactid
 		INNER JOIN relation g ON a.relationid = g.relationid
-		WHERE a.statusid <> 1 AND a.usrupd = '%s'
-	`, "8023")
+		WHERE %s
+	`, whereClause)
 
 	var totalCount int64
 	if err := config.DB.Raw(sqlCount).Scan(&totalCount).Error; err != nil {
@@ -344,10 +376,10 @@ func GetCase(c *gin.Context) {
 		INNER JOIN status e ON a.statusid = e.statusid
 		INNER JOIN contact f ON a.contactid = f.contactid
 		INNER JOIN relation g ON a.relationid = g.relationid
-		WHERE a.statusid <> 1 AND a.usrupd = '%s'
+		WHERE %s
 		ORDER BY RIGHT(a.ticketno, 3) DESC
 		OFFSET %d ROWS FETCH NEXT %d ROWS ONLY
-	`, "8023", offset, limitNum)
+	`, whereClause, offset, limitNum)
 
 	var cases []map[string]interface{}
 	if err := config.DB.Raw(sqlQuery).Scan(&cases).Error; err != nil {
