@@ -3,6 +3,7 @@ package main
 import (
 	"golang-sqlserver-app/config"
 	"golang-sqlserver-app/controllers"
+	"golang-sqlserver-app/middleware"
 	"log"
 
 	"github.com/gin-contrib/cors"
@@ -14,7 +15,7 @@ func main() {
 	config.ConnectDB()
 	// Set up the Gin router
 	r := gin.Default()
-
+	r.Use(middleware.RateLimitMiddleware)
 	// Configure CORS
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"}, // Allow this origin
@@ -34,7 +35,7 @@ func main() {
 	r.GET("/getAgreement", controllers.AgreementNoHandler())
 	r.GET("/getContact", controllers.GetContact)
 	r.GET("/getSubType", controllers.GetSubType)
-	r.GET("/getSaveCase", controllers.SaveCaseHandler)
+	r.POST("/getSaveCase", controllers.SaveCaseHandler)
 
 	// Start the server
 	if err := r.RunTLS("0.0.0.0:8686", "combined.crt", "csr_cnaf_2024_2025.key"); err != nil {
