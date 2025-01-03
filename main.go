@@ -34,7 +34,7 @@ func main() {
 	r.GET("/getAgreement", controllers.AgreementNoHandler())
 	r.GET("/getContact", controllers.GetContact)
 	r.GET("/getSubType", controllers.GetSubType)
-	r.GET("/getSaveCase", controllers.SaveCase)
+	r.GET("/getSaveCase", controllers.SaveCaseHandler)
 
 	// Start the server
 	if err := r.RunTLS("0.0.0.0:8686", "combined.crt", "csr_cnaf_2024_2025.key"); err != nil {

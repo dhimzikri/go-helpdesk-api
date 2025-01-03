@@ -3,6 +3,8 @@ package controllers
 import (
 	"fmt"
 	"golang-sqlserver-app/config"
+	"golang-sqlserver-app/models"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -412,76 +414,68 @@ func GetCase(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-func SaveCase(c *gin.Context) {
-	var trancodeid string
-	var nextID int
-	var statusDescription string
+func SaveCaseHandler(c *gin.Context) {
+	var input models.CaseInput
 
-	// Step 1: Check if status '2' exists in the status table
-	config.DB.Raw("SELECT statusname FROM status WHERE statusid = ?", "2").Row().Scan(&statusDescription)
-
-	// Step 2: Insert a case using sp_insertcase equivalent raw SQL
-	err := config.DB.Exec(`
-		EXEC sp_insertcase 
-			'', 'cnaf', '410', '410101100562', '410A201107002013', '41000003166', 
-			'M WAHYUDIN', '082299840427', 'info@cnaf.co.id', '2', '1', '25', '1', 
-			'tesForGo', '8023', '1', '1', '', '8080', 'info@cnaf.co.id', 
-			'2025-01-02', '2025-01-02', ?`, &trancodeid).Error
-
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+	// Bind JSON input to struct
+	if err := c.BindJSON(&input); err != nil {
+		log.Printf("Failed to bind input data: %v", err)
+		c.JSON(400, gin.H{"error": "Invalid input data"})
 		return
 	}
 
-	// Step 3: Log the insert into tbllog
-	logQuery := fmt.Sprintf(`
-		INSERT INTO tbllog ([tgl], [table_name], [menu], [script]) 
-		SELECT GETDATE(), '[case]', 'gridcase', 
-		'exec sp_insertcase , cnaf, 410, 410101100562, 410A201107002013, 41000003166, 
-		M WAHYUDIN, 082299840427, info@cnaf.co.id, 2, 1, 25, 1, tesForGo, 8023, 
-		1, 1, , 8080, info@cnaf.co.id, 2025-01-02, 2025-01-02'
-	`)
-	err = config.DB.Exec(logQuery).Error
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+	// Insert into the `case` table
+	insertCaseQuery := `INSERT INTO [case]
+                (ticketno, flagcompany, branchid, agreementno, applicationid, customerid,
+                customername, phoneno, email, statusid, typeid, subtypeid, priorityid,
+                description, usrupd, contactid, relationid, relationname, callerid, email_, date_cr, foragingdays)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	log.Printf("Executing query: %s with params: %v", insertCaseQuery, input)
+
+	if err := config.DB.Exec(insertCaseQuery,
+		input.TicketNo, input.FlagCompany, input.BranchID, input.AgreementNo, input.ApplicationID, input.CustomerID,
+		input.CustomerName, input.PhoneNo, input.Email, input.StatusID, input.TypeID, input.SubtypeID, input.PriorityID,
+		input.Description, input.UserID, input.ContactID, input.RelationID, input.RelationName, input.CallerID, input.Email_, input.DateCr, input.ForAgingDays).Error; err != nil {
+		log.Printf("Failed to insert into case table: %v", err)
+		c.JSON(500, gin.H{"error": "Failed to insert case data"})
 		return
 	}
 
-	// Step 4: Get next ID for Case_History table based on TicketNo
-	config.DB.Raw("SELECT IFNULL(MAX(id), 0) + 1 FROM Case_History WHERE TicketNo = ?", trancodeid).Row().Scan(&nextID)
+	// Insert into `Case_History` table
+	nextID := 1
+	selectNextIDQuery := "SELECT ISNULL(MAX(id), 0) + 1 FROM Case_History WHERE TicketNo = ?"
+	log.Printf("Executing query: %s with params: %v", selectNextIDQuery, input.TicketNo)
 
-	// Step 5: Insert into Case_History if not already present with statusid '2'
-	var count int
-	config.DB.Raw("SELECT COUNT(*) FROM Case_History WHERE TicketNo = ? AND StatusID = '2'", trancodeid).Row().Scan(&count)
-
-	if count == 0 {
-		// Insert into Case_History table
-		err = config.DB.Exec(`
-			INSERT INTO Case_History (id, ticketno, description, statusid, usrupd)
-			VALUES (?, ?, ?, '2', '8023')`, nextID, trancodeid, statusDescription).Error
-
-		if err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-			return
-		}
-	}
-
-	// Step 6: Update the status of the case to '2'
-	err = config.DB.Exec("UPDATE [case] SET statusid = '2' WHERE TicketNo = ?", trancodeid).Error
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+	if err := config.DB.Raw(selectNextIDQuery, input.TicketNo).Scan(&nextID).Error; err != nil {
+		log.Printf("Failed to calculate next Case_History ID: %v", err)
+		c.JSON(500, gin.H{"error": "Failed to calculate case history ID"})
 		return
 	}
 
-	// Step 7: Log the case update to tbllog
-	err = config.DB.Exec(logQuery).Error
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+	insertHistoryQuery := `INSERT INTO Case_History 
+		(id, ticketno, description, statusid, usrupd) 
+		VALUES (?, ?, ?, ?, ?)`
+	log.Printf("Executing query: %s with params: %v", insertHistoryQuery, nextID, input.TicketNo, input.StatusDesc, input.StatusID, input.UserID)
+
+	if err := config.DB.Exec(insertHistoryQuery, nextID, input.TicketNo, input.StatusDesc, input.StatusID, input.UserID).Error; err != nil {
+		log.Printf("Failed to insert into case history table: %v", err)
+		c.JSON(500, gin.H{"error": "Failed to insert case history data"})
 		return
 	}
 
-	// Return the transaction ID as a response
-	c.JSON(200, gin.H{"message": "Transaction created successfully"})
+	// Log the operation
+	logQuery := `INSERT INTO tbllog (tgl, table_name, menu, script) 
+		VALUES (?, '[case]', 'SaveCaseHandler', ?)`
+	log.Printf("Executing query: %s with params: %v", logQuery, time.Now(), fmt.Sprintf("INSERT INTO [case] VALUES (%s, ...)", input.TicketNo))
+
+	if err := config.DB.Exec(logQuery, time.Now(), fmt.Sprintf("INSERT INTO [case] VALUES (%s, ...)", input.TicketNo)).Error; err != nil {
+		log.Printf("Failed to log operation: %v", err)
+		c.JSON(500, gin.H{"error": "Failed to log operation"})
+		return
+	}
+
+	// Success Response
+	c.JSON(200, gin.H{"message": "Data inserted successfully", "ticketNo": input.TicketNo})
 }
 
 // Dummy function to represent email sending
