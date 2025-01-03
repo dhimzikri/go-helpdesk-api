@@ -27,3 +27,30 @@ type CaseInput struct {
 	ForAgingDays  time.Time `json:"foragingdays"`
 	StatusDesc    string    `json:"statusname"`
 }
+
+// paramSaveCase
+// {
+//     "TicketNo": "17283TEsFromGO",
+//     "FlagCompany": "cnaf",
+//     "BranchID": "419",
+//     "AgreementNo": "419230221201",
+//     "ApplicationID": "419A202309016922",
+//     "CustomerID": "41900021011",
+//     "CustomerName": "MARFIL SUNDALANGI",
+//     "PhoneNo": "081243379372",
+//     "Email": "baboljustitia@gmail.com",
+//     "StatusID": "2",
+//     "statusname" : "New",
+//     "TypeID": "1",
+//     "SubtypeID": "25",
+//     "PriorityID": "1",
+//     "Description": "fromGoFix",
+//     "usrupd": "8023",
+//     "ContactID": "1",
+//     "RelationID": "1",
+//     "RelationName": "Jane Doe",
+//     "CallerID": "8080",
+//     "Email_": "support@example.com",
+//     "date_cr": "2025-01-01",
+//     "foragingdays": "2025-01-01T00:00:00Z"
+// }

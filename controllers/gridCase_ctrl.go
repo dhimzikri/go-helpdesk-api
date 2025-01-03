@@ -424,6 +424,9 @@ func SaveCaseHandler(c *gin.Context) {
 		return
 	}
 
+	// Get the current system date
+	currentDate := time.Now().Format("2006-01-02") // Format as YYYY-MM-DD
+
 	// Insert into the `case` table
 	insertCaseQuery := `INSERT INTO [case]
                 (ticketno, flagcompany, branchid, agreementno, applicationid, customerid,
@@ -435,7 +438,7 @@ func SaveCaseHandler(c *gin.Context) {
 	if err := config.DB.Exec(insertCaseQuery,
 		input.TicketNo, input.FlagCompany, input.BranchID, input.AgreementNo, input.ApplicationID, input.CustomerID,
 		input.CustomerName, input.PhoneNo, input.Email, input.StatusID, input.TypeID, input.SubtypeID, input.PriorityID,
-		input.Description, input.UserID, input.ContactID, input.RelationID, input.RelationName, input.CallerID, input.Email_, input.DateCr, input.ForAgingDays).Error; err != nil {
+		input.Description, input.UserID, input.ContactID, input.RelationID, input.RelationName, input.CallerID, input.Email_, input.DateCr, currentDate).Error; err != nil {
 		log.Printf("Failed to insert into case table: %v", err)
 		c.JSON(500, gin.H{"error": "Failed to insert case data"})
 		return
