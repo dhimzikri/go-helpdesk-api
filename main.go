@@ -13,12 +13,14 @@ import (
 func main() {
 	// Initialize the database
 	config.ConnectDB()
+
 	// Set up the Gin router
 	r := gin.Default()
 	r.Use(middleware.RateLimitMiddleware)
+
 	// Configure CORS
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"}, // Allow this origin
+		AllowOrigins:     []string{"*"}, // Allow all origins
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"*"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -35,8 +37,8 @@ func main() {
 	r.GET("/getSubType", controllers.GetSubType)
 	r.POST("/getSaveCase", controllers.SaveCaseHandler)
 
-	// Start the server
-	if err := r.RunTLS("0.0.0.0:8686", "combined.crt", "csr_cnaf_2024_2025.key"); err != nil {
+	// Start the server using HTTP
+	if err := r.Run("0.0.0.0:8686"); err != nil {
 		log.Fatalf("Failed to run server: %v", err)
 	}
 }
