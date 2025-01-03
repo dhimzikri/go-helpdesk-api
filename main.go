@@ -30,6 +30,7 @@ func main() {
 	// CRUD endpoints
 	r.GET("/getData", controllers.GetData)
 	r.GET("/getCase", controllers.GetCase)
+	r.POST("/getCase", controllers.GetCase)
 	r.GET("/getRelation", controllers.GetRelation)
 	r.GET("/getStatus", controllers.GetTblStatus)
 	r.GET("/getAgreement", controllers.AgreementNoHandler())
