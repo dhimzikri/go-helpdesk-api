@@ -26,10 +26,8 @@ func main() {
 	}))
 
 	// CRUD endpoints
-	r.GET("/gettblType", controllers.GetTblType)
+	r.GET("/getData", controllers.GetData)
 	r.GET("/getCase", controllers.GetCase)
-	r.GET("/getPriority", controllers.GetTblPriority)
-	r.GET("/getBranch", controllers.GetBranch)
 	r.GET("/getRelation", controllers.GetRelation)
 	r.GET("/getStatus", controllers.GetTblStatus)
 	r.GET("/getAgreement", controllers.AgreementNoHandler())
