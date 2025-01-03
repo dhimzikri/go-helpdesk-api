@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	DB *gorm.DB
-	// DB2 *gorm.DB
+	DB  *gorm.DB
+	DB2 *gorm.DB
 )
 
 func ConnectDB() {
@@ -32,7 +32,7 @@ func ConnectDB() {
 	}
 
 	DB = connectToDB("Portal_HelpDesk_CS")
-	// DB2 = connectToDB("Portal_EXT_CNAF_Mobile")
+	DB2 = connectToDB("Portal_EXT_UAT")
 }
 
 func GetDB() *gorm.DB {

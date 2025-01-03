@@ -27,6 +27,11 @@ func main() {
 		AllowCredentials: true,
 	}))
 
+	// Auth endpoints
+	r.POST("/login", controllers.Login) // /user/login route
+	r.POST("/register", controllers.Register)
+	r.GET("/logout", controllers.Logout)
+
 	// CRUD endpoints
 	r.GET("/getData", controllers.GetData)
 	r.GET("/getCase", controllers.GetCase)
