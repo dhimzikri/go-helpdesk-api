@@ -483,6 +483,37 @@ func SaveCaseHandler(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Failed to insert case data"})
 		return
 	}
+	nextID := 1
+	selectNextIDQuery := "SELECT ISNULL(MAX(id), 0) + 1 FROM Case_History WHERE TicketNo = ?"
+	log.Printf("Executing query: %s with params: %v", selectNextIDQuery, ticketNo)
+
+	if err := config.DB.Raw(selectNextIDQuery, ticketNo).Scan(&nextID).Error; err != nil {
+		log.Printf("Failed to calculate next Case_History ID: %v", err)
+		c.JSON(500, gin.H{"error": "Failed to calculate case history ID"})
+		return
+	}
+
+	insertHistoryQuery := `INSERT INTO Case_History 
+		(id, ticketno, description, statusid, usrupd) 
+		VALUES (?, ?, ?, ?, ?)`
+	log.Printf("Executing query: %s with params: %v", insertHistoryQuery, nextID, ticketNo, input.StatusDesc, input.StatusID, input.UserID)
+
+	if err := config.DB.Exec(insertHistoryQuery, nextID, ticketNo, input.StatusDesc, input.StatusID, input.UserID).Error; err != nil {
+		log.Printf("Failed to insert into case history table: %v", err)
+		c.JSON(500, gin.H{"error": "Failed to insert case history data"})
+		return
+	}
+
+	// Log the operation
+	logQuery := `INSERT INTO tbllog (tgl, table_name, menu, script) 
+		VALUES (?, '[case]', 'SaveCaseHandler', ?)`
+	log.Printf("Executing query: %s with params: %v", logQuery, time.Now(), fmt.Sprintf("INSERT INTO [case] VALUES (%s, ...)", ticketNo))
+
+	if err := config.DB.Exec(logQuery, time.Now(), fmt.Sprintf("INSERT INTO [case] VALUES (%s, ...)", ticketNo)).Error; err != nil {
+		log.Printf("Failed to log operation: %v", err)
+		c.JSON(500, gin.H{"error": "Failed to log operation"})
+		return
+	}
 
 	// Success Response
 	c.JSON(200, gin.H{"message": "Data inserted successfully", "ticketNo": ticketNo})
