@@ -27,8 +27,7 @@ func Login(c *gin.Context) {
 	ctx := context.Background()
 	err := utils.DoRetry(ctx, func(ctx context.Context) error {
 		// Use GORM to execute the query
-		if err := config.DB2.Where("user_name = ? AND user_password = ?", login.Username, login.Password).First(&user).Error; err != nil {
-			// Retry logic
+		if err := config.DB2.Where("user_name = ?", login.Username).First(&user).Error; err != nil {
 			if err.Error() == "record not found" {
 				utils.Response(c, http.StatusNotFound, "User not found", nil)
 			} else {
@@ -42,6 +41,12 @@ func Login(c *gin.Context) {
 
 	// Check if retry failed
 	if err != nil {
+		return
+	}
+
+	// Compare the input password with the stored hashed password
+	if err := utils.ComparePasswords(user.Password, login.Password); err != nil {
+		utils.Response(c, http.StatusUnauthorized, "Invalid credentials", nil)
 		return
 	}
 
@@ -62,20 +67,60 @@ func Login(c *gin.Context) {
 	utils.Response(c, http.StatusOK, "Successfully Logged In", responseData)
 }
 
+func SaveUser(user *models.User) error {
+	encryptedPassword, err := utils.EncryptPassword(user.Password)
+	if err != nil {
+		return err
+	}
+
+	user.Password = encryptedPassword
+	return config.DB2.Create(user).Error
+}
+
 // Register User
 func Register(c *gin.Context) {
-	var input models.User
-	if err := c.ShouldBindJSON(&input); err != nil {
-		utils.RespondJSON(c, http.StatusBadRequest, false, "Invalid input", nil)
+	var user models.User
+	if err := c.ShouldBindJSON(&user); err != nil {
+		utils.Response(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
-	if err := config.DB.Create(&input).Error; err != nil {
-		utils.RespondJSON(c, http.StatusInternalServerError, false, "Failed to register user", nil)
+	// Encrypt the user's password
+	hashedPassword, err := utils.EncryptPassword(user.Password)
+	if err != nil {
+		utils.Response(c, http.StatusInternalServerError, "Error encrypting password", nil)
+		return
+	}
+	user.Password = hashedPassword
+
+	// Start a transaction
+	tx := config.DB2.Begin()
+
+	// Disable triggers for the `users` table
+	if err := tx.Exec("DISABLE TRIGGER ALL ON users").Error; err != nil {
+		tx.Rollback()
+		utils.Response(c, http.StatusInternalServerError, "Failed to disable triggers", nil)
 		return
 	}
 
-	utils.RespondJSON(c, http.StatusOK, true, "User registered successfully", input)
+	// Save the user to the database
+	if err := tx.Create(&user).Error; err != nil {
+		tx.Rollback()
+		utils.Response(c, http.StatusInternalServerError, "Error saving user", nil)
+		return
+	}
+
+	// Re-enable triggers for the `users` table
+	if err := tx.Exec("ENABLE TRIGGER ALL ON users").Error; err != nil {
+		tx.Rollback()
+		utils.Response(c, http.StatusInternalServerError, "Failed to enable triggers", nil)
+		return
+	}
+
+	// Commit the transaction
+	tx.Commit()
+
+	utils.Response(c, http.StatusOK, "User registered successfully", nil)
 }
 
 // Logout User
