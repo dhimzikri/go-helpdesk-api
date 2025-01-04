@@ -334,61 +334,93 @@ func GetCase(c *gin.Context) {
 }
 
 func SaveCaseHandler(c *gin.Context) {
-	// Retrieve the username from the session
+	// Retrieve user_name from session
 	session := sessions.Default(c)
-	username := session.Get("username")
-	if username == nil {
-		log.Println("User not logged in or session expired")
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+	userName := session.Get("user_name")
+	if userName == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
-	var input models.CaseInput
-
+	var input models.Case
 	// Bind JSON input to struct
 	if err := c.BindJSON(&input); err != nil {
 		log.Printf("Failed to bind input data: %v", err)
-		c.JSON(400, gin.H{"error": "Invalid input data"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input data"})
 		return
 	}
 
-	// Step 1: Extract the first 3 digits of AgreementNo
+	// Step 1: Check if the ticket exists in the `Case` table
+	var existingTicket models.Case
+	if err := config.DB.Table("Case").Where("ticketno = ?", input.TicketNo).First(&existingTicket).Error; err == nil {
+		// Ticket exists, perform an update
+		existingTicket.Description = input.Description
+		existingTicket.PriorityID = input.PriorityID
+		existingTicket.ContactID = input.ContactID
+		existingTicket.RelationID = input.RelationID
+		existingTicket.RelationName = input.RelationName
+		existingTicket.CallerID = input.CallerID
+		existingTicket.Email_ = input.Email_
+		existingTicket.StatusID = input.StatusID
+		existingTicket.DateCr = input.DateCr
+
+		// Update the existing case
+		if err := config.DB.Table("Case").Omit("statusname").Save(&existingTicket).Error; err != nil {
+			log.Printf("Failed to update case: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update case data"})
+			return
+		}
+
+		// Insert/Update Case_History
+		nextID := 1
+		if err := config.DB.Raw("SELECT ISNULL(MAX(id), 0) + 1 FROM Case_History WHERE ticketno = ?", input.TicketNo).Scan(&nextID).Error; err != nil {
+			log.Printf("Failed to calculate next Case_History ID: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate case history ID"})
+			return
+		}
+
+		insertHistoryQuery := `INSERT INTO Case_History (id, ticketno, description, statusid, usrupd, dtmupd) 
+			VALUES (?, ?, ?, ?, ?, GETDATE())`
+		if err := config.DB.Exec(insertHistoryQuery, nextID, input.TicketNo, input.Description, input.StatusID, userName).Error; err != nil {
+			log.Printf("Failed to insert into Case_History: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert case history data"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Case updated successfully", "ticketNo": existingTicket.TicketNo})
+		return
+	}
+
+	// Ticket doesn't exist, create a new one
 	agreementPrefix := input.AgreementNo[:3]
-
-	// Step 2: Append "CS"
 	csPrefix := "CS"
-
-	// Step 3: Get current date in YYMMDD format
 	currentDate := time.Now().Format("060102")              // Example: "250103" for Jan 3, 2025
 	currentDate_forAging := time.Now().Format("2006-01-02") // Example: "2025-01-03"
 
-	// Step 4: Get the last used incremented value
+	// Get the last ticket number and increment
 	var lastTicketNo string
 	if err := config.DB.Raw("SELECT TOP 1 ticketno FROM [case] WHERE ticketno LIKE ? ORDER BY ticketno DESC", agreementPrefix+"%").Scan(&lastTicketNo).Error; err != nil {
 		log.Printf("Failed to retrieve last ticket number: %v", err)
-		c.JSON(500, gin.H{"error": "Failed to retrieve last ticket number"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve last ticket number"})
 		return
 	}
 
-	// Step 5: Check if we retrieved a ticket number
 	if lastTicketNo == "" {
 		lastTicketNo = agreementPrefix + csPrefix + currentDate + "000001"
 	}
 
-	// Step 6: Extract and increment the numeric part
 	ticketSuffix := lastTicketNo[len(agreementPrefix+csPrefix+currentDate):]
 	lastIncrementedValue, err := strconv.Atoi(ticketSuffix)
 	if err != nil {
 		log.Printf("Failed to convert ticket suffix to integer: %v", err)
-		c.JSON(500, gin.H{"error": "Failed to convert ticket suffix"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to convert ticket suffix"})
 		return
 	}
 	lastIncrementedValue++
 
-	// Step 7: Generate the final ticket number
 	ticketNo := fmt.Sprintf("%s%s%s%06d", agreementPrefix, csPrefix, currentDate, lastIncrementedValue)
 
-	// Insert into the `case` table
+	// Insert into the `Case` table for new ticket
 	insertCaseQuery := `INSERT INTO [case]
                 (ticketno, flagcompany, branchid, agreementno, applicationid, customerid,
                 customername, phoneno, email, statusid, typeid, subtypeid, priorityid,
@@ -397,41 +429,40 @@ func SaveCaseHandler(c *gin.Context) {
 	if err := config.DB.Exec(insertCaseQuery,
 		ticketNo, input.FlagCompany, input.BranchID, input.AgreementNo, input.ApplicationID, input.CustomerID,
 		input.CustomerName, input.PhoneNo, input.Email, input.StatusID, input.TypeID, input.SubtypeID, input.PriorityID,
-		input.Description, username.(string), input.ContactID, input.RelationID, input.RelationName, input.CallerID, input.Email_, input.DateCr, currentDate_forAging).Error; err != nil {
+		input.Description, userName.(string), input.ContactID, input.RelationID, input.RelationName, input.CallerID, input.Email_, input.DateCr, currentDate_forAging).Error; err != nil {
 		log.Printf("Failed to insert into case table: %v", err)
-		c.JSON(500, gin.H{"error": "Failed to insert case data"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert case data"})
 		return
 	}
 
-	// Insert into Case_History
+	// Insert into `Case_History` table for new case
 	nextID := 1
-	selectNextIDQuery := "SELECT ISNULL(MAX(id), 0) + 1 FROM Case_History WHERE TicketNo = ?"
-	if err := config.DB.Raw(selectNextIDQuery, ticketNo).Scan(&nextID).Error; err != nil {
+	if err := config.DB.Raw("SELECT ISNULL(MAX(id), 0) + 1 FROM Case_History").Scan(&nextID).Error; err != nil {
 		log.Printf("Failed to calculate next Case_History ID: %v", err)
-		c.JSON(500, gin.H{"error": "Failed to calculate case history ID"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate case history ID"})
 		return
 	}
 
 	insertHistoryQuery := `INSERT INTO Case_History 
-		(id, ticketno, description, statusid, usrupd) 
-		VALUES (?, ?, ?, ?, ?)`
-	if err := config.DB.Exec(insertHistoryQuery, nextID, ticketNo, input.StatusDesc, input.StatusID, username.(string)).Error; err != nil {
-		log.Printf("Failed to insert into case history table: %v", err)
-		c.JSON(500, gin.H{"error": "Failed to insert case history data"})
+	(id, ticketno, description, statusid, usrupd, dtmupd) 
+	VALUES (?, ?, ?, ?, ?, GETDATE())`
+	if err := config.DB.Exec(insertHistoryQuery, nextID, ticketNo, input.Description, input.StatusID, userName).Error; err != nil {
+		log.Printf("Failed to insert into Case_History: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert case history data"})
 		return
 	}
 
 	// Log the operation
 	logQuery := `INSERT INTO tbllog (tgl, table_name, menu, script) 
-		VALUES (?, '[case]', 'SaveCaseHandler', ?)`
+	VALUES (?, '[case]', 'SaveCaseHandler', ?)`
 	if err := config.DB.Exec(logQuery, time.Now(), fmt.Sprintf("INSERT INTO [case] VALUES (%s, ...)", ticketNo)).Error; err != nil {
 		log.Printf("Failed to log operation: %v", err)
-		c.JSON(500, gin.H{"error": "Failed to log operation"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to log operation"})
 		return
 	}
 
 	// Success Response
-	c.JSON(200, gin.H{"message": "Data inserted successfully", "ticketNo": ticketNo})
+	c.JSON(http.StatusOK, gin.H{"message": "Data inserted successfully", "ticketNo": ticketNo})
 }
 
 // Dummy function to represent email sending
