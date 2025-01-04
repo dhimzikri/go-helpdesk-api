@@ -7,6 +7,8 @@ import (
 	"log"
 
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,6 +19,8 @@ func main() {
 	// Set up the Gin router
 	r := gin.Default()
 	r.Use(middleware.RateLimitMiddleware)
+	store := cookie.NewStore([]byte("secret"))
+	r.Use(sessions.Sessions("mysession", store))
 
 	// Configure CORS
 	r.Use(cors.New(cors.Config{

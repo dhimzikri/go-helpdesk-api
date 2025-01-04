@@ -1,69 +1,50 @@
 package controllers
 
 import (
-	"context"
-	"fmt"
 	"golang-sqlserver-app/config"
 	"golang-sqlserver-app/models"
 	"golang-sqlserver-app/utils"
 	"net/http"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 
 // Login User
 func Login(c *gin.Context) {
 	var login models.Login
-
-	// Decode the incoming request body to populate the login model
 	if err := c.ShouldBindJSON(&login); err != nil {
 		utils.Response(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
 	var user models.User
-
-	// Context for retry logic
-	ctx := context.Background()
-	err := utils.DoRetry(ctx, func(ctx context.Context) error {
-		// Use GORM to execute the query
-		if err := config.DB2.Where("user_name = ?", login.Username).First(&user).Error; err != nil {
-			if err.Error() == "record not found" {
-				utils.Response(c, http.StatusNotFound, "User not found", nil)
-			} else {
-				fmt.Printf("Retrying request after error: %v\n", err)
-				utils.Response(c, http.StatusInternalServerError, err.Error(), nil)
-			}
-			return utils.RetryableError(err)
-		}
-		return nil
-	})
-
-	// Check if retry failed
-	if err != nil {
+	if err := config.DB2.Where("user_name = ?", login.Username).First(&user).Error; err != nil {
+		utils.Response(c, http.StatusNotFound, "User not found", nil)
 		return
 	}
 
-	// Compare the input password with the stored hashed password
 	if err := utils.ComparePasswords(user.Password, login.Password); err != nil {
 		utils.Response(c, http.StatusUnauthorized, "Invalid credentials", nil)
 		return
 	}
 
-	// Create token for the user
+	// Save user_name in session
+	session := sessions.Default(c)
+	session.Set("user_name", user.Username)
+	session.Save()
+
 	token, err := utils.CreateToken(&user)
 	if err != nil {
 		utils.Response(c, http.StatusInternalServerError, err.Error(), nil)
 		return
 	}
 
-	// Prepare the response data
 	responseData := map[string]interface{}{
 		"data_user": user,
 		"token":     token,
 	}
 
-	// Send success response
 	utils.Response(c, http.StatusOK, "Successfully Logged In", responseData)
 }
 

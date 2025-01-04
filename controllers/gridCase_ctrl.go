@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/patrickmn/go-cache"
 )
@@ -253,6 +254,14 @@ func GetSubType(c *gin.Context) {
 var caseCache = cache.New(5*time.Minute, 10*time.Minute)
 
 func GetCase(c *gin.Context) {
+	// Retrieve user_name from session
+	session := sessions.Default(c)
+	userName := session.Get("user_name")
+	if userName == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	// Get page number and limit from query parameters
 	page := c.DefaultQuery("page", "1")
 	limit := c.DefaultQuery("limit", "30")
@@ -290,8 +299,9 @@ func GetCase(c *gin.Context) {
 		}
 	}
 
-	// Default condition
+	// Add condition for statusid and username from the session
 	conditions = append(conditions, "a.statusid <> 1")
+	conditions = append(conditions, fmt.Sprintf("a.usrupd = '%s'", userName))
 
 	// Combine conditions with "AND"
 	whereClause := strings.Join(conditions, " AND ")
