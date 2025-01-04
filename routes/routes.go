@@ -26,15 +26,13 @@ func GetDataHelpDesk() *gin.Engine {
 	r := router.Group("/get")
 	{
 		// CRUD endpoints
-		r.GET("/getData", controllers.GetData)
+		r.GET("/gettblType", controllers.GetTblType)
 		r.GET("/getCase", controllers.GetCase)
-		r.POST("/getCase", controllers.GetCase)
+		r.GET("/getPriority", controllers.GetTblPriority)
+		r.GET("/getBranch", controllers.GetBranch)
 		r.GET("/getRelation", controllers.GetRelation)
 		r.GET("/getStatus", controllers.GetTblStatus)
 		r.GET("/getAgreement", controllers.AgreementNoHandler())
-		r.GET("/getContact", controllers.GetContact)
-		r.GET("/getSubType", controllers.GetSubType)
-		r.POST("/getSaveCase", controllers.SaveCaseHandler)
 	}
 
 	return router

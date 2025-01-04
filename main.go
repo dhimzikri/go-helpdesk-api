@@ -37,15 +37,15 @@ func main() {
 	r.GET("/logout", controllers.Logout)
 
 	// CRUD endpoints
-	r.GET("/getData", controllers.GetData)
 	r.GET("/getCase", controllers.GetCase)
 	r.POST("/getCase", controllers.GetCase)
+	r.POST("/getSaveCase", controllers.SaveCaseHandler)
 	r.GET("/getRelation", controllers.GetRelation)
 	r.GET("/getStatus", controllers.GetTblStatus)
+	r.GET("/gettblType", controllers.GetTblType)
 	r.GET("/getAgreement", controllers.AgreementNoHandler())
 	r.GET("/getContact", controllers.GetContact)
 	r.GET("/getSubType", controllers.GetSubType)
-	r.POST("/getSaveCase", controllers.SaveCaseHandler)
 
 	// Start the server using HTTP
 	if err := r.Run("0.0.0.0:8686"); err != nil {
