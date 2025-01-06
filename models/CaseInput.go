@@ -3,7 +3,7 @@ package models
 import "time"
 
 type Case struct {
-	TicketNo      string    `json:"ticketno" binding:"required" gorm:"primaryKey;column:ticketno"`
+	TicketNo      string    `json:"ticketno" gorm:"primaryKey;column:ticketno"`
 	FlagCompany   string    `json:"flagcompany" binding:"required" gorm:"column:flagcompany"`
 	BranchID      string    `json:"branchid" binding:"required" gorm:"column:branchid"`
 	AgreementNo   string    `json:"agreementno" gorm:"column:agreementno"`
