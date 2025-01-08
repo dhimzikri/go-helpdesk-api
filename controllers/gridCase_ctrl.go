@@ -13,6 +13,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/patrickmn/go-cache"
+	"gopkg.in/gomail.v2"
 )
 
 func GetTblType(c *gin.Context) {
@@ -463,6 +464,103 @@ func SaveCaseHandler(c *gin.Context) {
 
 	// Success Response
 	c.JSON(http.StatusOK, gin.H{"message": "Data inserted successfully", "ticketNo": ticketNo})
+}
+
+type EmailData struct {
+	Subject string `gorm:"column:subject_"` // Match the output column names
+	Body    string `gorm:"column:body_"`
+	Email   string `gorm:"column:email"` // Match the output column names
+}
+
+// SettingEmail sends an email using the gomail package
+func SettingEmail(subject, bodyEmail, recipient, trancodeid string) error {
+	mail := gomail.NewMessage()
+
+	mail.SetHeader("From", "passadmin@cnaf.co.id", "INFO CS CIMBNIAGA FINANCE")
+	mail.SetHeader("To", recipient)
+	mail.SetHeader("Subject", subject)
+	mail.SetBody("text/html", bodyEmail)
+
+	dialer := gomail.NewDialer(
+		"smtp-mail.outlook.com", // SMTP host
+		587,                     // Port
+		"passadmin@cnaf.co.id",  // Email address
+		"123456.Aa",             // Email password
+	)
+
+	if err := dialer.DialAndSend(mail); err != nil {
+		log.Printf("Failed to send email for TrancodeID %s: %v", trancodeid, err)
+		return err
+	}
+
+	log.Printf("Email sent successfully for TrancodeID %s", trancodeid)
+	return nil
+}
+
+// HandleSendEmail implements the email logic
+func HandleSendEmail(c *gin.Context) {
+	type EmailRequest struct {
+		IsSendEmail  int    `json:"issendemail" binding:"required"`
+		Status       string `json:"status" binding:"required"`
+		CustomerName string `json:"customername" gorm:"column:customername"`
+		TicketNo     string `json:"ticketno" binding:"required"`
+		TranCodeID   string `json:"trancodeid" binding:"required"`
+		Email        string `json:"email" binding:"required"`
+		UserID       string `json:"userid" binding:"required"`
+	}
+
+	var emailReq EmailRequest
+	if err := c.ShouldBindJSON(&emailReq); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data", "details": err.Error()})
+		return
+	}
+
+	sendEmailFlag := ""
+	if emailReq.IsSendEmail == 1 {
+		switch emailReq.Status {
+		case "1", "2", "3", "4":
+			sendEmailFlag = "SendTicket" // non-extend
+		case "5":
+			sendEmailFlag = "SendTicketForExtend" // for extend
+		}
+	}
+
+	if sendEmailFlag != "" {
+		data := fmt.Sprintf("%s|%s", emailReq.CustomerName, emailReq.TicketNo)
+		sqlEmail := fmt.Sprintf(
+			"set nocount on; exec sp_getsendEmail '%s', '%s', '%s', '%s', '%s', NULL;", // Pass NULL for output parameter
+			emailReq.TicketNo, emailReq.Email, data, sendEmailFlag, emailReq.UserID,
+		)
+
+		// Log the SQL query for debugging
+		log.Printf("Executing SQL: %s", sqlEmail)
+
+		var emailData []EmailData
+		if err := config.DB.Raw(sqlEmail).Scan(&emailData).Error; err != nil {
+			log.Printf("Failed to execute query: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database query failed", "details": err.Error()})
+			return
+		}
+
+		for _, row := range emailData {
+			// Log the email address being used
+			log.Printf("Sending email to: %s", row.Email)
+
+			// Validate the email address
+			if row.Email == "" {
+				log.Printf("Invalid email address for TrancodeID %s: empty email", emailReq.TranCodeID)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email address", "details": "Email address cannot be empty"})
+				return
+			}
+
+			if err := SettingEmail(row.Subject, row.Body, row.Email, emailReq.TranCodeID); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send email", "details": err.Error()})
+				return
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Email processed successfully"})
 }
 
 // Dummy function to represent email sending
