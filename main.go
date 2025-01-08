@@ -46,6 +46,7 @@ func main() {
 	r.GET("/getAgreement", controllers.AgreementNoHandler())
 	r.GET("/getContact", controllers.GetContact)
 	r.GET("/getSubType", controllers.GetSubType)
+	// r.GET("/sendEmail", controllers.SendEmail)
 
 	// Start the server using HTTP
 	if err := r.Run("0.0.0.0:8686"); err != nil {
