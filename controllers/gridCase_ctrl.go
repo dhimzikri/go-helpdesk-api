@@ -505,7 +505,7 @@ func HandleSendEmail(c *gin.Context) {
 		CustomerName string `json:"customername" gorm:"column:customername"`
 		TicketNo     string `json:"ticketno" binding:"required"`
 		TranCodeID   string `json:"trancodeid" binding:"required"`
-		Email        string `json:"email" binding:"required"`
+		Email        string `json:"email_" binding:"required"`
 		UserID       string `json:"userid" binding:"required"`
 	}
 
