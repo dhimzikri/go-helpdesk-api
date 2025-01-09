@@ -14,11 +14,11 @@ import "time"
 // 	Body         string `gorm:"column:body_"`
 // }
 
-// type EmailData struct {
-// 	Subject string `gorm:"column:subject_"` // Match the output column names
-// 	Body    string `gorm:"column:body_"`
-// 	Email   string `gorm:"column:email"` // Match the output column names
-// }
+type EmailData struct {
+	Subject string `gorm:"column:subject_"` // Match the output column names
+	Body    string `gorm:"column:body_"`
+	Email   string `gorm:"column:email"` // Match the output column names
+}
 
 type EmailRequest struct {
 	IsSendEmail  int    `json:"issendemail" binding:"required"`

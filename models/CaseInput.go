@@ -26,4 +26,9 @@ type Case struct {
 	DateCr        string    `json:"date_cr" binding:"required" gorm:"column:date_cr"`
 	ForAgingDays  time.Time `json:"foragingdays" gorm:"column:foragingdays"`
 	StatusDesc    string    `json:"statusname" gorm:"column:statusname"`
+	DateUpd       time.Time `json:"dtmupd" gorm:"column:dtmupd"`
+}
+
+type SendEmail struct {
+	IsSendEmail int `json:"IsSendEmail" gorm:"column:IsSendEmail"`
 }
