@@ -38,11 +38,11 @@ func main() {
 
 	// Configure CORS
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://172.16.6.34:81"}, // Allow all origins
-		AllowMethods:     []string{"GET", "POST", "PUT"},
-		AllowHeaders:     []string{"*"},
+		AllowOrigins:     []string{"http://172.16.6.34:81"},         // Allow only your frontend's origin
+		AllowMethods:     []string{"GET", "POST", "PUT", "OPTIONS"}, // Allow OPTIONS for preflight requests
+		AllowHeaders:     []string{"Content-Type", "X-Requested-With", "Authorization", "X-Forwarded-For", "X-Real-IP"},
 		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: false,
+		AllowCredentials: true, // Enable credentials (cookies, session)
 	}))
 
 	// Auth endpoints
