@@ -21,20 +21,25 @@ func main() {
 	store := cookie.NewStore([]byte("secret"))
 	r.Use(sessions.Sessions("mysession", store))
 
-	if err := r.SetTrustedProxies([]string{"172.16.6.85", "172.16.6.34", "127.0.0.1"}); err != nil {
+	if err := r.SetTrustedProxies([]string{"172.20.18.103", "172.16.6.34"}); err != nil {
 		log.Fatalf("Failed to set trusted proxies: %v", err)
 	}
 
-	// Middleware to log client IP
+	// Middleware to get the client IP from X-Forwarded-For
 	r.Use(func(c *gin.Context) {
-		log.Printf("Client IP: %s", c.ClientIP())
+		clientIP := c.Request.Header.Get("X-Forwarded-For")
+		if clientIP == "" {
+			clientIP = c.ClientIP() // Fallback to Gin's default method if X-Forwarded-For is not set
+		}
+
+		log.Printf("Client IP: %s", clientIP) // Log the client IP
 		c.Next()
 	})
 
 	// Configure CORS
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"}, // Allow all origins
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowMethods:     []string{"GET", "POST", "PUT"},
 		AllowHeaders:     []string{"*"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: false,
