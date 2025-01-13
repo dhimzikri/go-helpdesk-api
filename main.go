@@ -3,7 +3,6 @@ package main
 import (
 	"golang-sqlserver-app/config"
 	"golang-sqlserver-app/controllers"
-	"golang-sqlserver-app/middleware"
 	"log"
 
 	"github.com/gin-contrib/cors"
@@ -18,7 +17,7 @@ func main() {
 
 	// Set up the Gin router
 	r := gin.Default()
-	r.Use(middleware.RateLimitMiddleware)
+	// r.Use(middleware.RateLimitMiddleware)
 	store := cookie.NewStore([]byte("secret"))
 	r.Use(sessions.Sessions("mysession", store))
 

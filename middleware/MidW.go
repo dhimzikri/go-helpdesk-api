@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var rateLimiter = utils.NewRateLimiter(5, 10*time.Second) //set reset 10Sec for debug
+var rateLimiter = utils.NewRateLimiter(5, 1*time.Minute)
 
 func RateLimitMiddleware(c *gin.Context) {
 	ip := c.ClientIP()
