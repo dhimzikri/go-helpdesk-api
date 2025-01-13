@@ -34,18 +34,18 @@ func main() {
 	// Auth endpoints
 	r.POST("/login", controllers.Login) // /user/login route
 	r.POST("/register", controllers.Register)
-	r.GET("/logout", controllers.Logout)
+	r.POST("/logout", controllers.Logout)
 
 	// CRUD endpoints
-	r.GET("/getCase", controllers.GetCase)
+	r.POST("/getCase", controllers.GetCase)
 	r.POST("/getCase", controllers.GetCase)
 	r.POST("/getSaveCase", controllers.SaveCaseHandler)
-	r.GET("/getRelation", controllers.GetRelation)
-	r.GET("/getStatus", controllers.GetTblStatus)
-	r.GET("/gettblType", controllers.GetTblType)
-	r.GET("/getAgreement", controllers.AgreementNoHandler())
-	r.GET("/getContact", controllers.GetContact)
-	r.GET("/getSubType", controllers.GetSubType)
+	r.POST("/getRelation", controllers.GetRelation)
+	r.POST("/getStatus", controllers.GetTblStatus)
+	r.POST("/gettblType", controllers.GetTblType)
+	r.POST("/getAgreement", controllers.AgreementNoHandler())
+	r.POST("/getContact", controllers.GetContact)
+	r.POST("/getSubType", controllers.GetSubType)
 	// r.POST("/sendEmail", controllers.HandleSendEmail)
 
 	// Start the server using HTTP
