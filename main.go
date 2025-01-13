@@ -45,6 +45,7 @@ func main() {
 	r.GET("/getAgreement", controllers.AgreementNoHandler())
 	r.GET("/getContact", controllers.GetContact)
 	r.GET("/getSubType", controllers.GetSubType)
+	r.GET("/gettblPriority", controllers.GetTblPriority)
 	// r.POST("/sendEmail", controllers.HandleSendEmail)
 
 	// Start the server using HTTP
