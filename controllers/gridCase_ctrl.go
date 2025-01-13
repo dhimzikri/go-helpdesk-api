@@ -544,22 +544,23 @@ func getSendEmailFlag(ticketNo string, statusID int) (string, error) {
 func sendEmail(ticketNo, sendEmailFlag string, caseData models.Case, userName string) error {
 	// Log input parameters
 	log.Printf("Starting email send process for ticket %s", ticketNo)
-	log.Printf("Email parameters - Flag: %s, Customer: %s, Email: %s, UserID: %s",
-		sendEmailFlag, caseData.CustomerName, caseData.Email, caseData.UserID)
+	log.Printf("Email parameters - Flag: %s, Customer: %s, Primary Email: %s, Secondary Email: %s, UserID: %s",
+		sendEmailFlag, caseData.CustomerName, caseData.Email, caseData.Email_, caseData.UserID)
 
-	// Validate input emails
-	if caseData.Email == "" && caseData.Email_ == "" {
+	// Determine which email to use
+	// Priority is given to Email_ (secondary email) as per requirements
+	emailToUse := caseData.Email_
+	if emailToUse == "" {
+		emailToUse = caseData.Email // Fallback to primary email if secondary is empty
+	}
+
+	// Validate final email
+	if emailToUse == "" {
 		return fmt.Errorf("no email address available for ticket %s", ticketNo)
 	}
 
 	// Prepare data for stored procedure
 	data := fmt.Sprintf("%s|%s", caseData.CustomerName, ticketNo)
-
-	// Use Email_ if main Email is empty
-	emailToUse := caseData.Email
-	if emailToUse == "" {
-		emailToUse = caseData.Email_
-	}
 
 	// Log stored procedure call
 	log.Printf("Calling sp_getsendEmail with params - TicketNo: %s, Email: %s, Data: %s, Flag: %s, UserID: %s",
@@ -587,14 +588,9 @@ func sendEmail(ticketNo, sendEmailFlag string, caseData models.Case, userName st
 	for idx, row := range emailData {
 		log.Printf("Processing email record %d for ticket %s", idx+1, ticketNo)
 
-		// Validate email data
+		// Use the already validated emailToUse if row.Email is empty
 		if row.Email == "" {
-			// Try alternate email address
-			row.Email = caseData.Email_
-			if row.Email == "" {
-				log.Printf("No valid email address found for ticket %s", ticketNo)
-				continue
-			}
+			row.Email = emailToUse
 		}
 
 		// Validate subject and body
@@ -635,7 +631,6 @@ func sendEmail(ticketNo, sendEmailFlag string, caseData models.Case, userName st
 
 	return nil
 }
-
 func SaveCaseHandler(c *gin.Context) {
 	// Retrieve user_name from session
 	session := sessions.Default(c)
@@ -666,10 +661,36 @@ func SaveCaseHandler(c *gin.Context) {
 
 	if isExisting {
 		// Update existing case logic...
-		if err := config.DB.Table("Case").Omit("statusname", "flag", "is_send_email").Save(&existingTicket).Error; err != nil {
-			log.Printf("Failed to update case: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update case data"})
-			return
+		var existingTicket models.Case
+		if err := config.DB.Table("Case").Where("ticketno = ?", input.TicketNo).First(&existingTicket).Error; err == nil {
+			existingTicket.Description = input.Description
+			existingTicket.PriorityID = input.PriorityID
+			existingTicket.ContactID = input.ContactID
+			existingTicket.RelationID = input.RelationID
+			existingTicket.RelationName = input.RelationName
+			existingTicket.CallerID = input.CallerID
+			existingTicket.Email_ = input.Email_
+			existingTicket.StatusID = input.StatusID
+			existingTicket.DateCr = input.DateCr
+
+			if err := config.DB.Table("Case").Omit("statusname", "flag", "is_send_email").Save(&existingTicket).Error; err != nil {
+				log.Printf("Failed to update case: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update case data"})
+				return
+			}
+			nextID := 1
+			if err := config.DB.Raw("SELECT ISNULL(MAX(id), 0) + 1 FROM Case_History WHERE ticketno = ?", input.TicketNo).Scan(&nextID).Error; err != nil {
+				log.Printf("Failed to calculate next Case_History ID: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate case history ID"})
+				return
+			}
+			insertHistoryQuery := `INSERT INTO Case_History (id, ticketno, description, statusid, usrupd, dtmupd)
+				VALUES (?, ?, ?, ?, ?, GETDATE())`
+			if err := config.DB.Exec(insertHistoryQuery, nextID, input.TicketNo, input.Description, input.StatusID, userName).Error; err != nil {
+				log.Printf("Failed to insert into Case_History: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert case history data"})
+				return
+			}
 		}
 	} else {
 		// Create new case logic...
