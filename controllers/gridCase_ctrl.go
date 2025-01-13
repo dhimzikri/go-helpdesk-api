@@ -480,18 +480,33 @@ func SaveCaseHandler(c *gin.Context) {
 	var existingTicket models.Case
 	if err := config.DB.Table("Case").Where("ticketno = ?", input.TicketNo).First(&existingTicket).Error; err == nil {
 		// Ticket exists, perform an update
-		existingTicket.Description = input.Description
+		// existingTicket.TicketNo = input.TicketNo //it must disable (enable it for debug only)
+		// existingTicket.FlagCompany = input.FlagCompany //it must disable (enable it for debug only)
+		// existingTicket.BranchID = input.BranchID //it must disable (enable it for debug only)
+		// existingTicket.AgreementNo = input.AgreementNo //it must disable (enable it for debug only)
+		// existingTicket.ApplicationID = input.ApplicationID //it must disable (enable it for debug only)
+		// existingTicket.CustomerID = input.CustomerID //it must disable (enable it for debug only)
+		existingTicket.CustomerName = input.CustomerName //currently enabled, use in debug
+		existingTicket.PhoneNo = input.PhoneNo
+		// existingTicket.Email = input.Email //it must disable (enable it for debug only)
+		existingTicket.Email_ = input.Email_
+		existingTicket.StatusID = input.StatusID
+		existingTicket.TypeID = input.TypeID
+		existingTicket.SubtypeID = input.SubtypeID
 		existingTicket.PriorityID = input.PriorityID
+		existingTicket.Description = input.Description
+		existingTicket.UserID = input.UserID
 		existingTicket.ContactID = input.ContactID
 		existingTicket.RelationID = input.RelationID
 		existingTicket.RelationName = input.RelationName
-		existingTicket.CallerID = input.CallerID
-		existingTicket.Email_ = input.Email_
-		existingTicket.StatusID = input.StatusID
-		existingTicket.DateCr = input.DateCr
+		// existingTicket.CallerID = input.CallerID //it must disable (enable it for debug only)
+		existingTicket.ForAgingDays = input.ForAgingDays
+		existingTicket.StatusDesc = input.StatusDesc
+		existingTicket.DateUpd = input.DateUpd
+		existingTicket.IsSendEmail = input.IsSendEmail
 
 		// Update the existing case
-		if err := config.DB.Table("Case").Omit("statusname").Save(&existingTicket).Error; err != nil {
+		if err := config.DB.Table("Case").Omit("statusname", "IsSendEmail").Save(&existingTicket).Error; err != nil {
 			log.Printf("Failed to update case: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update case data"})
 			return
