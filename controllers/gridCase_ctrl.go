@@ -303,14 +303,13 @@ var caseCache = cache.New(5*time.Minute, 10*time.Minute)
 
 func GetCase(c *gin.Context) {
 	// Retrieve user_name from session
-	// session := sessions.Default(c)
-	// userName := session.Get("user_name")
-	// if userName == nil {
-	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-	// 	return
-	// }
+	session := sessions.Default(c)
+	userName := session.Get("user_name")
+	if userName == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
 
-	var input models.Case
 	// Get page number and limit from query parameters
 	page := c.DefaultQuery("page", "1")
 	limit := c.DefaultQuery("limit", "30")
@@ -350,7 +349,7 @@ func GetCase(c *gin.Context) {
 
 	// Add condition for statusid and username from the session
 	conditions = append(conditions, "a.statusid <> 1")
-	conditions = append(conditions, fmt.Sprintf("a.usrupd = '%s'", input.UserID))
+	conditions = append(conditions, fmt.Sprintf("a.usrupd = '%s'", userName))
 
 	// Combine conditions with "AND"
 	whereClause := strings.Join(conditions, " AND ")
