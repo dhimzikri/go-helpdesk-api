@@ -302,6 +302,14 @@ func GetSubType(c *gin.Context) {
 var caseCache = cache.New(5*time.Minute, 10*time.Minute)
 
 func GetCase(c *gin.Context) {
+	// Retrieve user_name from session
+	session := sessions.Default(c)
+	userName := session.Get("user_name")
+	if userName == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
 	// Get page number and limit from query parameters
 	page := c.DefaultQuery("page", "1")
 	limit := c.DefaultQuery("limit", "30")
@@ -314,6 +322,48 @@ func GetCase(c *gin.Context) {
 	// Calculate offset for pagination
 	offset := (pageNum - 1) * limitNum
 
+	// Build dynamic WHERE conditions for search
+	var conditions []string
+
+	// Define a map of query parameters and their corresponding database fields
+	fields := map[string]string{
+		"ticketno":      "a.ticketno",
+		"agreementno":   "a.agreementno",
+		"applicationid": "a.applicationid",
+		"customername":  "a.customername",
+		"priority":      "d.Description",
+		"status":        "e.statusname",
+		"usrupd":        "a.usrupd",
+	}
+
+	// Iterate over the map and add conditions dynamically
+	for param, field := range fields {
+		if value := c.Query(param); value != "" {
+			if param == "usrupd" { // Handle exact match for usrupd
+				conditions = append(conditions, fmt.Sprintf("%s = '%s'", field, value))
+			} else { // Handle LIKE conditions for other fields
+				conditions = append(conditions, fmt.Sprintf("%s LIKE '%%%s%%'", field, value))
+			}
+		}
+	}
+
+	// Add condition for statusid and username from the session
+	conditions = append(conditions, "a.statusid <> 1")
+	conditions = append(conditions, fmt.Sprintf("a.usrupd = '%s'", userName))
+
+	// Combine conditions with "AND"
+	whereClause := strings.Join(conditions, " AND ")
+
+	// Generate a unique cache key based on query parameters
+	cacheKey := fmt.Sprintf("cases_page_%d_limit_%d_conditions_%s", pageNum, limitNum, whereClause)
+
+	// Check if the data is already in the cache
+	if cachedData, found := caseCache.Get(cacheKey); found {
+		// Return cached data
+		c.JSON(http.StatusOK, cachedData)
+		return
+	}
+
 	// Build SQL query for counting total records
 	sqlCount := fmt.Sprintf(`
 		SELECT COUNT(*)
@@ -324,8 +374,8 @@ func GetCase(c *gin.Context) {
 		INNER JOIN status e ON a.statusid = e.statusid
 		INNER JOIN contact f ON a.contactid = f.contactid
 		INNER JOIN relation g ON a.relationid = g.relationid
-		WHERE a.statusid <> 1 AND a.usrupd = '%s'
-	`, "8023")
+		WHERE %s
+	`, whereClause)
 
 	var totalCount int64
 	if err := config.DB.Raw(sqlCount).Scan(&totalCount).Error; err != nil {
@@ -350,10 +400,10 @@ func GetCase(c *gin.Context) {
 		INNER JOIN status e ON a.statusid = e.statusid
 		INNER JOIN contact f ON a.contactid = f.contactid
 		INNER JOIN relation g ON a.relationid = g.relationid
-		WHERE a.statusid <> 1 AND a.usrupd = '%s'
+		WHERE %s
 		ORDER BY RIGHT(a.ticketno, 3) DESC
 		OFFSET %d ROWS FETCH NEXT %d ROWS ONLY
-	`, "8023", offset, limitNum)
+	`, whereClause, offset, limitNum)
 
 	var cases []map[string]interface{}
 	if err := config.DB.Raw(sqlQuery).Scan(&cases).Error; err != nil {
@@ -361,12 +411,19 @@ func GetCase(c *gin.Context) {
 		return
 	}
 
-	// Return the results in JSON format
-	c.JSON(http.StatusOK, gin.H{
+	// Prepare the response
+	response := gin.H{
 		"total": totalCount,
 		"cases": cases,
-	})
+	}
+
+	// Store the response in cache
+	caseCache.Set(cacheKey, response, cache.DefaultExpiration)
+
+	// Return the results in JSON format
+	c.JSON(http.StatusOK, response)
 }
+
 func SaveCaseHandler(c *gin.Context) {
 	// Retrieve user_name from session
 	session := sessions.Default(c)
