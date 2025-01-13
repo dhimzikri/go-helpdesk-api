@@ -38,7 +38,7 @@ func main() {
 
 	// Configure CORS
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://103.154.88.227/"}, // Allow all origins
+		AllowOrigins:     []string{"http://172.16.6.34:81"}, // Allow all origins
 		AllowMethods:     []string{"GET", "POST", "PUT"},
 		AllowHeaders:     []string{"*"},
 		ExposeHeaders:    []string{"Content-Length"},
