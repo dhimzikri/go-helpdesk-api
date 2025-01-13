@@ -1,15 +1,9 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
 	"golang-sqlserver-app/config"
 	"golang-sqlserver-app/controllers"
-	"golang-sqlserver-app/models"
-	"golang-sqlserver-app/utils"
 	"log"
-	"os"
-	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
@@ -21,17 +15,9 @@ func main() {
 	// Initialize the database
 	config.ConnectDB()
 
-	// Perform login before starting the server
-	fmt.Println("Welcome! Please log in to continue:")
-	username, password := getLoginCredentials()
-	if !validateCredentials(username, password) {
-		log.Fatalln("Invalid credentials. Exiting the application.")
-		return
-	}
-	fmt.Println("Login successful! Starting the server...")
-
 	// Set up the Gin router
 	r := gin.Default()
+	// r.Use(middleware.RateLimitMiddleware)
 	store := cookie.NewStore([]byte("secret"))
 	r.Use(sessions.Sessions("mysession", store))
 
@@ -60,7 +46,7 @@ func main() {
 	}))
 
 	// Auth endpoints
-	r.POST("/login", controllers.Login)
+	r.POST("/login", controllers.Login) // /user/login route
 	r.POST("/register", controllers.Register)
 	r.GET("/logout", controllers.Logout)
 
@@ -75,40 +61,10 @@ func main() {
 	r.GET("/getContact", controllers.GetContact)
 	r.GET("/getSubType", controllers.GetSubType)
 	r.GET("/gettblPriority", controllers.GetTblPriority)
+	// r.POST("/sendEmail", controllers.HandleSendEmail)
 
-	// Start the server
+	// Start the server using HTTP
 	if err := r.Run("0.0.0.0:8686"); err != nil {
 		log.Fatalf("Failed to run server: %v", err)
 	}
-}
-
-// getLoginCredentials prompts the user for username and password
-func getLoginCredentials() (string, string) {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Print("Username: ")
-	username, _ := reader.ReadString('\n')
-	username = strings.TrimSpace(username)
-
-	fmt.Print("Password: ")
-	password, _ := reader.ReadString('\n')
-	password = strings.TrimSpace(password)
-
-	return username, password
-}
-
-// validateCredentials checks the user's input against the database
-func validateCredentials(username, password string) bool {
-	var user models.User
-	if err := config.DB2.Where("user_name = ?", username).First(&user).Error; err != nil {
-		fmt.Println("User not found")
-		return false
-	}
-
-	if err := utils.ComparePasswords(user.Password, password); err != nil {
-		fmt.Println("Invalid password")
-		return false
-	}
-
-	return true
 }
