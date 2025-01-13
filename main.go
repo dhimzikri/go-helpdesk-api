@@ -21,6 +21,16 @@ func main() {
 	store := cookie.NewStore([]byte("secret"))
 	r.Use(sessions.Sessions("mysession", store))
 
+	if err := r.SetTrustedProxies([]string{"172.16.6.85", "172.16.6.34", "127.0.0.1"}); err != nil {
+		log.Fatalf("Failed to set trusted proxies: %v", err)
+	}
+
+	// Middleware to log client IP
+	r.Use(func(c *gin.Context) {
+		log.Printf("Client IP: %s", c.ClientIP())
+		c.Next()
+	})
+
 	// Configure CORS
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"}, // Allow all origins
