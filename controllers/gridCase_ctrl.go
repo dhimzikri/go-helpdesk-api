@@ -470,6 +470,7 @@ func SaveCaseHandler(c *gin.Context) {
 
 	// Step 1: Check if the ticket exists in the `Case` table
 	var existingTicket models.Case
+	dtmupd := time.Now()
 	if err := config.DB.Table("Case").Where("ticketno = ?", input.TicketNo).First(&existingTicket).Error; err == nil {
 		// Ticket exists, perform an update
 		// existingTicket.TicketNo = input.TicketNo //it must disable (enable it for debug only)
@@ -492,9 +493,10 @@ func SaveCaseHandler(c *gin.Context) {
 		existingTicket.RelationID = input.RelationID
 		existingTicket.RelationName = input.RelationName
 		// existingTicket.CallerID = input.CallerID //it must disable (enable it for debug only)
-		existingTicket.ForAgingDays = input.ForAgingDays
+		// existingTicket.ForAgingDays = input.ForAgingDays
 		existingTicket.StatusDesc = input.StatusDesc
-		existingTicket.DateUpd = input.DateUpd
+		existingTicket.DateUpd = dtmupd
+		existingTicket.DateCr = input.DateCr
 		existingTicket.IsSendEmail = input.IsSendEmail
 
 		// Update the existing case
