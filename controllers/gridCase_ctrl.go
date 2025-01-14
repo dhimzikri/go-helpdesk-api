@@ -533,6 +533,13 @@ func SaveCaseHandler(c *gin.Context) {
 	}
 
 	// Ticket doesn't exist, create a new one
+	if len(input.AgreementNo) < 3 {
+		log.Printf("Invalid AgreementNo: '%s'. Length is less than 3.", input.AgreementNo)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "AgreementNo must be at least 3 characters long"})
+		return
+	}
+
+	// Extract the prefix safely
 	agreementPrefix := input.AgreementNo[:3]
 	csPrefix := "CS"
 	currentDate := time.Now().Format("060102")
