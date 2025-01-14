@@ -22,7 +22,7 @@ type Case struct {
 	ContactID     int       `json:"contactid" gorm:"column:contactid"`
 	RelationID    int       `json:"relationid" gorm:"column:relationid"`
 	RelationName  string    `json:"relationname" gorm:"column:relationname"`
-	CallerID      int       `json:"callerid" gorm:"column:callerid"`
+	CallerID      string    `json:"callerid" gorm:"column:callerid"`
 	DateCr        string    `json:"date_cr" binding:"required" gorm:"column:date_cr"`
 	ForAgingDays  time.Time `json:"foragingdays" gorm:"column:foragingdays"`
 	StatusDesc    string    `json:"statusname" gorm:"column:statusname"`
