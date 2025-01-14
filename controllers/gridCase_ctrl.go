@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/patrickmn/go-cache"
 	"gopkg.in/gomail.v2"
@@ -302,12 +303,12 @@ var caseCache = cache.New(5*time.Minute, 10*time.Minute)
 
 func GetCase(c *gin.Context) {
 	// Retrieve user_name from session
-	// session := sessions.Default(c)
-	// userName := session.Get("user_name")
-	// if userName == nil {
-	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-	// 	return
-	// }
+	session := sessions.Default(c)
+	userName := session.Get("user_name")
+	if userName == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
 
 	// Get page number and limit from query parameters
 	page := c.DefaultQuery("page", "1")
@@ -345,10 +346,10 @@ func GetCase(c *gin.Context) {
 			}
 		}
 	}
-	var input models.Case
+
 	// Add condition for statusid and username from the session
 	conditions = append(conditions, "a.statusid <> 1")
-	conditions = append(conditions, fmt.Sprintf("a.usrupd = '%s'", input.UserID))
+	conditions = append(conditions, fmt.Sprintf("a.usrupd = '%s'", userName))
 
 	// Combine conditions with "AND"
 	whereClause := strings.Join(conditions, " AND ")
@@ -425,12 +426,12 @@ func GetCase(c *gin.Context) {
 
 func SaveCaseHandler(c *gin.Context) {
 	// Retrieve user_name from session
-	// session := sessions.Default(c)
-	// userName := session.Get("user_name")
-	// if userName == nil {
-	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-	// 	return
-	// }
+	session := sessions.Default(c)
+	userName := session.Get("user_name")
+	if userName == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
 
 	var input models.Case
 	// Bind JSON input to struct
@@ -454,7 +455,7 @@ func SaveCaseHandler(c *gin.Context) {
 			data := fmt.Sprintf("%s|%s", customerName, ticketNo)
 			sqlEmail := fmt.Sprintf(
 				"set nocount on; exec sp_getsendEmail '%s', '%s', '%s', '%s', '%s', NULL;",
-				ticketNo, email, data, sendEmailFlag, input.UserID,
+				ticketNo, email, data, sendEmailFlag, userName.(string),
 			)
 
 			var emailData []models.EmailData
@@ -521,7 +522,7 @@ func SaveCaseHandler(c *gin.Context) {
 
 		insertHistoryQuery := `INSERT INTO Case_History (id, ticketno, description, statusid, usrupd, dtmupd) 
 			VALUES (?, ?, ?, ?, ?, GETDATE())`
-		if err := config.DB.Exec(insertHistoryQuery, nextID, input.TicketNo, input.Description, input.StatusID, input.UserID).Error; err != nil {
+		if err := config.DB.Exec(insertHistoryQuery, nextID, input.TicketNo, input.Description, input.StatusID, userName).Error; err != nil {
 			log.Printf("Failed to insert into Case_History: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert case history data"})
 			return
@@ -575,7 +576,7 @@ func SaveCaseHandler(c *gin.Context) {
 	if err := config.DB.Exec(insertCaseQuery,
 		ticketNo, input.FlagCompany, input.BranchID, input.AgreementNo, input.ApplicationID, input.CustomerID,
 		input.CustomerName, input.PhoneNo, input.Email, input.StatusID, input.TypeID, input.SubtypeID, input.PriorityID,
-		input.Description, input.UserID, input.ContactID, input.RelationID, input.RelationName, input.CallerID, input.Email_, input.DateCr, currentDate_forAging).Error; err != nil {
+		input.Description, userName.(string), input.ContactID, input.RelationID, input.RelationName, input.CallerID, input.Email_, input.DateCr, currentDate_forAging).Error; err != nil {
 		log.Printf("Failed to insert into case table: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert case data"})
 		return
@@ -592,7 +593,7 @@ func SaveCaseHandler(c *gin.Context) {
 	insertHistoryQuery := `INSERT INTO Case_History 
 	(id, ticketno, description, statusid, usrupd, dtmupd) 
 	VALUES (?, ?, ?, ?, ?, GETDATE())`
-	if err := config.DB.Exec(insertHistoryQuery, nextID, ticketNo, input.Description, input.StatusID, input.UserID).Error; err != nil {
+	if err := config.DB.Exec(insertHistoryQuery, nextID, ticketNo, input.Description, input.StatusID, userName).Error; err != nil {
 		log.Printf("Failed to insert into Case_History: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert case history data"})
 		return
