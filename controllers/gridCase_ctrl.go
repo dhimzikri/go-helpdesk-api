@@ -380,7 +380,7 @@ func GetCase(c *gin.Context) {
 		SELECT 
 			ROW_NUMBER() OVER (ORDER BY RIGHT(a.ticketno, 3) DESC) AS RowNumber,
 			a.flagcompany, a.ticketno, a.agreementno, a.applicationid, a.customerid,
-			a.typeid, b.description AS typedescriontion, a.subtypeid, c.SubDescription AS typesubdescriontion,
+			a.typeid, b.description AS typedescription, a.subtypeid, c.SubDescription AS typesubdescription,
 			a.priorityid, d.Description AS prioritydescription, a.statusid, e.statusname,
 			e.description AS statusdescription, a.customername, a.branchid, a.description, a.phoneno,
 			a.email, a.usrupd, a.dtmupd, a.date_cr, f.contactid, f.Description AS contactdescription,
