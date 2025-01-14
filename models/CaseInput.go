@@ -27,5 +27,5 @@ type Case struct {
 	ForAgingDays  time.Time `json:"foragingdays" gorm:"column:foragingdays"`
 	StatusDesc    string    `json:"statusname" gorm:"column:statusname"`
 	DateUpd       time.Time `json:"dtmupd" gorm:"column:dtmupd"`
-	IsSendEmail   bool      `json:"IsSendEmail" gorm:"column:IsSendEmail"`
+	IsSendEmail   string    `json:"IsSendEmail" gorm:"column:IsSendEmail"`
 }
