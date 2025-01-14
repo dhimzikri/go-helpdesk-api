@@ -485,7 +485,7 @@ func SaveCaseHandler(c *gin.Context) {
 		existingTicket.Email_ = input.Email_
 		existingTicket.StatusID = input.StatusID
 		existingTicket.TypeID = input.TypeID
-		existingTicket.SubtypeID = input.SubtypeID
+		existingTicket.SubTypeID = input.SubTypeID
 		existingTicket.PriorityID = input.PriorityID
 		existingTicket.Description = input.Description
 		existingTicket.UserID = input.UserID
@@ -494,7 +494,7 @@ func SaveCaseHandler(c *gin.Context) {
 		existingTicket.RelationName = input.RelationName
 		// existingTicket.CallerID = input.CallerID //it must disable (enable it for debug only)
 		// existingTicket.ForAgingDays = input.ForAgingDays
-		existingTicket.StatusDesc = input.StatusDesc
+		existingTicket.StatusDescription = input.StatusDescription
 		existingTicket.DateUpd = dtmupd
 		existingTicket.DateCr = input.DateCr
 		existingTicket.IsSendEmail = input.IsSendEmail
@@ -569,7 +569,7 @@ func SaveCaseHandler(c *gin.Context) {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	if err := config.DB.Exec(insertCaseQuery,
 		ticketNo, input.FlagCompany, input.BranchID, input.AgreementNo, input.ApplicationID, input.CustomerID,
-		input.CustomerName, input.PhoneNo, input.Email, input.StatusID, input.TypeID, input.SubtypeID, input.PriorityID,
+		input.CustomerName, input.PhoneNo, input.Email, input.StatusID, input.TypeID, input.SubTypeID, input.PriorityID,
 		input.Description, userName, input.ContactID, input.RelationID, input.RelationName, input.CallerID, input.Email_, input.DateCr, currentDate_forAging).Error; err != nil {
 		log.Printf("Failed to insert into case table: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert case data"})
