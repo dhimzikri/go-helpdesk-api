@@ -502,7 +502,7 @@ func SaveCaseHandler(c *gin.Context) {
 		existingTicket.DateCr = input.DateCr
 
 		// Update the existing case
-		if err := config.DB.Table("Case").Omit("statusname", "IsSendEmail", "is_send_email").Save(&existingTicket).Error; err != nil {
+		if err := config.DB.Table("Case").Omit("statusname", "IsSendEmail", "is_send_email", "flag").Save(&existingTicket).Error; err != nil {
 			log.Printf("Failed to update case: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update case data"})
 			return
