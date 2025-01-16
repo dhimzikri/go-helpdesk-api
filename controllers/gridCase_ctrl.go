@@ -8,10 +8,9 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"gopkg.in/gomail.v2"
+	"gorm.io/gorm"
 )
 
 // GetCases retrieves cases with pagination, search, and total count
@@ -78,7 +77,7 @@ func GetCase(c *gin.Context) {
 		SELECT COUNT(*)
 		FROM [Case] a
 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
-		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
+		LEFT JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
 		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
 		INNER JOIN status e ON a.statusid = e.statusid
 		INNER JOIN contact f ON a.contactid = f.contactid
@@ -104,7 +103,7 @@ func GetCase(c *gin.Context) {
 			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.email_, a.foragingdays
 		FROM [Case] a
 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
-		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
+		LEFT JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
 		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
 		INNER JOIN status e ON a.statusid = e.statusid
 		INNER JOIN contact f ON a.contactid = f.contactid
@@ -132,242 +131,214 @@ func GetCase(c *gin.Context) {
 	// Return the results in JSON format
 	c.JSON(http.StatusOK, response)
 }
-func executeQuery(query string, args ...interface{}) error {
-	// Log the query and its parameters for debugging
-	log.Printf("Executing Query: %s | Params: %v", query, args)
 
-	// Execute the query
-	if err := config.DB.Exec(query, args...).Error; err != nil {
-		// Log the error if the query fails
-		log.Printf("Query Execution Failed: %s | Params: %v | Error: %v", query, args, err)
-		return err
-	}
-
-	return nil
-}
-
-func SaveCaseHandler(c *gin.Context) {
-	// Retrieve user_name from session
-	// session := sessions.Default(c)
-	userName := "8023"
-	// if userName == nil {
-	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-	// 	return
-	// }
-
-	var input models.Case
-	// Bind JSON input to struct
-	if err := c.BindJSON(&input); err != nil {
-		log.Printf("Failed to bind input data: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input data"})
+func SaveCase(c *gin.Context) {
+	var request models.CaseRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": "Invalid request format", "error": err.Error()})
 		return
 	}
 
-	// Helper function to send email
-	sendCaseEmail := func(ticketNo, customerName, email, status string) error {
-		sendEmailFlag := ""
-		switch status {
-		case "1", "2", "3", "4":
-			sendEmailFlag = "SendTicket"
-		case "5":
-			sendEmailFlag = "SendTicketForExtend"
+	// Convert status to string for comparison
+	statusStr := fmt.Sprintf("%d", request.StatusID)
+
+	sql := `
+    BEGIN TRY  
+        SET NOCOUNT ON;
+        DECLARE @trancodeid VARCHAR(20);
+        
+        EXEC sp_insertcase ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @trancodeid OUTPUT;
+        
+        -- Log the operation
+        INSERT INTO tbllog ([tgl], [table_name], [menu], [script])
+        SELECT GETDATE(), '[case]', 'gridcase', 'Executed insert case with status: ' + ?;
+        
+        SELECT @trancodeid AS trancodeid;
+    END TRY
+    BEGIN CATCH
+        SELECT ERROR_NUMBER() AS ErrorNumber, 
+               ERROR_MESSAGE() AS ErrorMessage;
+    END CATCH;`
+
+	params := []interface{}{
+		nullIfEmpty(request.TicketNo),
+		request.FlagCompany,
+		request.BranchID,
+		strings.TrimSpace(request.AgreementNo),
+		strings.TrimSpace(request.ApplicationID),
+		strings.TrimSpace(request.CustomerID),
+		request.CustomerName,
+		request.PhoneNo,
+		request.Email,
+		statusStr,
+		request.TypeID,
+		request.SubTypeID,
+		request.PriorityID,
+		request.Description,
+		request.UserID,
+		request.ContactID,
+		request.RelationID,
+		nullIfEmpty(request.RelationName),
+		request.CallerID,
+		request.Email_,
+		request.DateCr,
+		"0",       // forAgingDays
+		statusStr, // for the log message
+	}
+
+	// Execute query and scan result
+	rows, err := config.DB.Raw(sql, params...).Rows()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"msg":     "Failed to execute query",
+			"error":   err.Error(),
+		})
+		return
+	}
+	defer rows.Close()
+
+	var trancodeid string
+	if rows.Next() {
+		if err := rows.Scan(&trancodeid); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"msg":     "Failed to scan result",
+				"error":   err.Error(),
+			})
+			return
 		}
+	}
 
-		if sendEmailFlag != "" {
-			data := fmt.Sprintf("%s|%s", customerName, ticketNo)
-			sqlEmail := fmt.Sprintf(
-				"set nocount on; exec sp_getsendEmail '%s', '%s', '%s', '%s', '%s', NULL;",
-				ticketNo, email, data, sendEmailFlag, userName,
-			)
-
-			var emailData []models.EmailData
-			if err := config.DB.Raw(sqlEmail).Scan(&emailData).Error; err != nil {
-				return fmt.Errorf("failed to execute email query: %v", err)
-			}
-
-			for _, row := range emailData {
-				if row.Email == "" {
-					return fmt.Errorf("invalid email address: empty email")
-				}
-
-				if err := SettingEmail(row.Subject, row.Body, row.Email, ticketNo); err != nil {
-					return fmt.Errorf("failed to send email: %v", err)
-				}
-			}
+	// Handle email sending if required
+	if request.IsSendEmail == "true" {
+		emailErr := SendCaseEmail(config.DB, trancodeid, request)
+		if emailErr != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success":    true,
+				"msg":        "Case saved but email sending failed",
+				"trancodeid": trancodeid,
+				"emailError": emailErr.Error(),
+			})
+			return
 		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":    true,
+		"msg":        "Case saved successfully",
+		"trancodeid": trancodeid,
+	})
+}
+
+func nullIfEmpty(s string) string {
+	if strings.TrimSpace(s) == "" {
+		return "NULL"
+	}
+	return s
+}
+
+func SendCaseEmail(db *gorm.DB, trancodeid string, request models.CaseRequest) error {
+	var sendEmailFlag string
+	switch request.StatusID {
+	case 1, 2, 3, 4:
+		sendEmailFlag = "SendTicket"
+	case 5:
+		sendEmailFlag = "SendTicketForExtend"
+	default:
 		return nil
 	}
 
-	// Step 1: Check if the ticket exists in the `Case` table
-	var existingTicket models.Case
-	dtmupd := time.Now()
-	if err := config.DB.Table("Case").Where("ticketno = ?", input.TicketNo).First(&existingTicket).Error; err == nil {
-		// ============enable for debug only=====================================
-		// Ticket exists, perform an update
-		// existingTicket.TicketNo = input.TicketNo //it must disable (enable it for debug only)
-		// existingTicket.FlagCompany = input.FlagCompany //it must disable (enable it for debug only)
-		// existingTicket.BranchID = input.BranchID //it must disable (enable it for debug only)
-		// existingTicket.AgreementNo = input.AgreementNo //it must disable (enable it for debug only)
-		// existingTicket.ApplicationID = input.ApplicationID //it must disable (enable it for debug only)
-		// existingTicket.CustomerID = input.CustomerID //it must disable (enable it for debug only)
-		// existingTicket.IsSendEmail = input.IsSendEmail
-		// existingTicket.Email = input.Email //it must disable (enable it for debug only)
-		// existingTicket.CallerID = input.CallerID //it must disable (enable it for debug only)
-		// existingTicket.StatusDescription = input.StatusDescription
-		// existingTicket.ForAgingDays = input.ForAgingDays
-		// ============enable for debug only=====================================
-		existingTicket.CustomerName = input.CustomerName //currently enabled, use in debug
-		existingTicket.PhoneNo = input.PhoneNo
-		existingTicket.Email_ = input.Email_
-		existingTicket.StatusID = input.StatusID
-		existingTicket.TypeID = input.TypeID
-		existingTicket.SubTypeID = input.SubTypeID
-		existingTicket.PriorityID = input.PriorityID
-		existingTicket.Description = input.Description
-		existingTicket.UserID = input.UserID
-		existingTicket.ContactID = input.ContactID
-		existingTicket.RelationID = input.RelationID
-		existingTicket.RelationName = input.RelationName
-		existingTicket.DateUpd = dtmupd
-		existingTicket.DateCr = input.DateCr
-
-		// Update the existing case
-		if err := config.DB.Table("Case").Omit("statusname", "IsSendEmail", "is_send_email", "flag").Save(&existingTicket).Error; err != nil {
-			log.Printf("Failed to update case: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update case data"})
-			return
-		}
-
-		// Insert/Update Case_History
-		nextID := 1
-		if err := config.DB.Raw("SELECT ISNULL(MAX(id), 0) + 1 FROM Case_History WHERE ticketno = ?", input.TicketNo).Scan(&nextID).Error; err != nil {
-			log.Printf("Failed to calculate next Case_History ID: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate case history ID"})
-			return
-		}
-
-		insertHistoryQuery := `INSERT INTO Case_History (id, ticketno, description, statusid, usrupd, dtmupd) 
-			VALUES (?, ?, ?, ?, ?, GETDATE())`
-		if err := config.DB.Exec(insertHistoryQuery, nextID, input.TicketNo, input.Description, input.StatusID, userName).Error; err != nil {
-			log.Printf("Failed to insert into Case_History: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert case history data"})
-			return
-		}
-
-		// Send email for updated case
-		if err := sendCaseEmail(existingTicket.TicketNo, existingTicket.CustomerName, existingTicket.Email_, fmt.Sprintf("%d", existingTicket.StatusID)); err != nil {
-			log.Printf("Email sending failed: %v", err)
-			// Continue execution even if email fails
-		}
-
-		c.JSON(http.StatusOK, gin.H{"message": "Case updated successfully", "ticketNo": existingTicket.TicketNo})
-		return
+	ticketno := request.TicketNo
+	if strings.TrimSpace(ticketno) == "" {
+		ticketno = trancodeid
 	}
 
-	// Ticket doesn't exist, create a new one
-	if len(input.AgreementNo) < 3 {
-		log.Printf("Invalid AgreementNo: '%s'. Length is less than 3.", input.AgreementNo)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "AgreementNo must be at least 3 characters long"})
-		return
-	}
+	data := fmt.Sprintf("%s|%s", request.CustomerName, ticketno)
 
-	// Extract the prefix safely
-	agreementPrefix := input.AgreementNo[:3]
-	csPrefix := "CS"
-	currentDate := time.Now().Format("060102")
-	currentDate_forAging := time.Now().Format("2006-01-02")
+	emailSQL := `
+    SET NOCOUNT ON;
+    EXEC sp_getsendEmail 
+        @trancodeid = ?,
+        @ticketno = ?,
+        @emailto = ?,
+        @data = ?,
+        @flag = ?,
+        @usrupd = ?
+    `
 
-	// Get the last ticket number and increment
-	var lastTicketNo string
-	if err := config.DB.Raw("SELECT TOP 1 ticketno FROM [case] WHERE ticketno LIKE ? ORDER BY ticketno DESC", agreementPrefix+"%").Scan(&lastTicketNo).Error; err != nil {
-		log.Printf("Failed to retrieve last ticket number: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve last ticket number"})
-		return
-	}
+	// Log the email query parameters for debugging
+	log.Printf("Executing email query with params: trancodeid=%s, ticketno=%s, emailto=%s, data=%s, flag=%s, usrupd=%s",
+		trancodeid, ticketno, request.Email_, data, sendEmailFlag, request.UserID)
 
-	if lastTicketNo == "" {
-		lastTicketNo = agreementPrefix + csPrefix + currentDate + "000001"
-	}
+	rows, err := db.Raw(emailSQL,
+		trancodeid,
+		ticketno,
+		request.Email_,
+		data,
+		sendEmailFlag,
+		request.UserID,
+	).Rows()
 
-	ticketSuffix := lastTicketNo[len(agreementPrefix+csPrefix+currentDate):]
-	lastIncrementedValue, err := strconv.Atoi(ticketSuffix)
 	if err != nil {
-		log.Printf("Failed to convert ticket suffix to integer: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to convert ticket suffix"})
-		return
+		return fmt.Errorf("failed to execute email query: %v", err)
 	}
-	lastIncrementedValue++
+	defer rows.Close()
 
-	ticketNo := fmt.Sprintf("%s%s%s%06d", agreementPrefix, csPrefix, currentDate, lastIncrementedValue)
+	for rows.Next() {
+		// Get column names
+		columns, err := rows.Columns()
+		if err != nil {
+			return fmt.Errorf("failed to get columns: %v", err)
+		}
 
-	// Insert into the `Case` table for new ticket
-	insertCaseQuery := `INSERT INTO [case]
-	(ticketno, flagcompany, branchid, agreementno, applicationid, customerid,
-	customername, phoneno, email, statusid, typeid, subtypeid, priorityid,
-	description, usrupd, contactid, relationid, relationname, callerid, email_, date_cr, foragingdays)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	if err := executeQuery(insertCaseQuery,
-		ticketNo, input.FlagCompany, input.BranchID, input.AgreementNo, input.ApplicationID, input.CustomerID,
-		input.CustomerName, input.PhoneNo, input.Email, input.StatusID, input.TypeID, input.SubTypeID, input.PriorityID,
-		input.Description, userName, input.ContactID, input.RelationID, input.RelationName, input.CallerID, input.Email_, input.DateCr, currentDate_forAging); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert case data"})
-		return
-	}
+		// Create holders for the values
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
 
-	// Insert into `Case_History` table for new case
-	nextID := 1
-	if err := config.DB.Raw("SELECT ISNULL(MAX(id), 0) + 1 FROM Case_History").Scan(&nextID).Error; err != nil {
-		log.Printf("Failed to calculate next Case_History ID: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to calculate case history ID"})
-		return
-	}
+		for i := range values {
+			valuePtrs[i] = &values[i]
+		}
 
-	insertHistoryQuery := `INSERT INTO Case_History 
-        (id, ticketno, description, statusid, usrupd, dtmupd) 
-        VALUES (?, ?, ?, ?, ?, GETDATE())`
-	if err := executeQuery(insertHistoryQuery, nextID, ticketNo, input.Description, input.StatusID, userName); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert case history data"})
-		return
-	}
+		// Scan the row into the holders
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return fmt.Errorf("failed to scan row: %v", err)
+		}
 
-	// Log the operation
-	logQuery := `INSERT INTO tbllog (tgl, table_name, menu, script) 
-        VALUES (?, '[case]', 'SaveCaseHandler', ?)`
-	if err := executeQuery(logQuery, time.Now(), fmt.Sprintf("INSERT INTO [case] VALUES (%s, ...)", ticketNo)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to log operation"})
-		return
-	}
+		// Create a map of column name to value
+		result := make(map[string]string)
+		for i, col := range columns {
+			val := values[i]
+			if val != nil {
+				result[strings.ToLower(col)] = fmt.Sprintf("%v", val)
+			}
+		}
 
-	// Send email for new case
-	if err := sendCaseEmail(ticketNo, input.CustomerName, input.Email_, fmt.Sprintf("%d", input.StatusID)); err != nil {
-		log.Printf("Email sending failed: %v", err)
-		// Continue execution even if email fails
-	}
+		// Log the retrieved values for debugging
+		log.Printf("Retrieved email data: %+v", result)
 
-	// Success Response
-	c.JSON(http.StatusOK, gin.H{"message": "Data inserted successfully", "ticketNo": ticketNo})
-}
+		// Extract required fields
+		subject := result["subject"]
+		body := result["body"]
+		recipient := result["emailto"] // Adjusted to match SP column name
 
-func SettingEmail(subject, bodyEmail, recipient, trancodeid string) error {
-	mail := gomail.NewMessage()
+		// Validate email data
+		if subject == "" || body == "" || recipient == "" {
+			log.Printf("Warning: Missing email data - subject: %v, body length: %v, recipient: %v",
+				subject, len(body), recipient)
+			continue
+		}
 
-	mail.SetHeader("From", "passadmin@cnaf.co.id", "INFO CS CIMBNIAGA FINANCE")
-	mail.SetHeader("To", recipient)
-	mail.SetHeader("Subject", subject)
-	mail.SetBody("text/html", bodyEmail)
-
-	dialer := gomail.NewDialer(
-		"smtp-mail.outlook.com", // SMTP host
-		587,                     // Port
-		"passadmin@cnaf.co.id",  // Email address
-		"123456.Aa",             // Email password
-	)
-
-	if err := dialer.DialAndSend(mail); err != nil {
-		log.Printf("Failed to send email for TrancodeID %s: %v", trancodeid, err)
-		return err
+		// Send the email
+		if err := SettingEmail(subject, body, recipient, trancodeid); err != nil {
+			log.Printf("Failed to send email: %v", err)
+			return fmt.Errorf("failed to send email: %v", err)
+		}
 	}
 
-	log.Printf("Email sent successfully for TrancodeID %s", trancodeid)
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("error iterating rows: %v", err)
+	}
+
 	return nil
 }

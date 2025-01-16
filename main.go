@@ -53,7 +53,6 @@ func main() {
 	// CRUD endpoints
 	r.GET("/getCase", controllers.GetCase)
 	r.POST("/getCase", controllers.GetCase)
-	r.POST("/getSaveCase", controllers.SaveCaseHandler)
 	r.GET("/getRelation", controllers.GetRelation)
 	r.GET("/getStatus", controllers.GetTblStatus)
 	r.GET("/gettblType", controllers.GetTblType)
@@ -63,6 +62,7 @@ func main() {
 	r.GET("/gettblPriority", controllers.GetTblPriority)
 	r.GET("/getHoliday", controllers.GetHolidays)
 	r.GET("/getSettingEmail", controllers.GetEmailSetting)
+	r.POST("/tesExecSave", controllers.SaveCase)
 	// r.POST("/sendEmail", controllers.HandleSendEmail)
 
 	// Start the server using HTTP
