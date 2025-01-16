@@ -497,7 +497,7 @@ func SaveCaseHandler(c *gin.Context) {
 		existingTicket.ContactID = input.ContactID
 		existingTicket.RelationID = input.RelationID
 		existingTicket.RelationName = input.RelationName
-		existingTicket.StatusDescription = input.StatusDescription
+		// existingTicket.StatusDescription = input.StatusDescription
 		existingTicket.DateUpd = dtmupd
 		existingTicket.DateCr = input.DateCr
 
