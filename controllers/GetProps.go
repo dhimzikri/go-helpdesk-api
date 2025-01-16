@@ -217,11 +217,6 @@ func ReadAgreement(flagCompany string, searchParams map[string]string) ([]map[st
 	return results, nil
 }
 
-// escapeSingleQuotes escapes single quotes in strings
-func escapeSingleQuotes(input string) string {
-	return strings.ReplaceAll(input, "'", "''")
-}
-
 // GetInfoHandler handles the API request for executing the stored procedure with caching
 func AgreementNoHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -240,9 +235,19 @@ func AgreementNoHandler() gin.HandlerFunc {
 			return
 		}
 
+		// Wrap results in a "data" field
+		response := gin.H{
+			"data": results,
+		}
+
 		// Return the results as JSON
-		c.JSON(http.StatusOK, results)
+		c.JSON(http.StatusOK, response)
 	}
+}
+
+// escapeSingleQuotes escapes single quotes in strings
+func escapeSingleQuotes(input string) string {
+	return strings.ReplaceAll(input, "'", "''")
 }
 
 func GetContact(c *gin.Context) {
