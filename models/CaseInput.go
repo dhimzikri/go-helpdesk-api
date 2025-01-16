@@ -32,6 +32,7 @@ type Case struct {
 	// TypeSubDescription  string    `json:"TypeSubDescription"`
 	UserID string `json:"UserID" binding:"required" gorm:"column:usrupd"`
 	// Flag                string    `json:"Flag"`
-	DateUpd     time.Time `json:"dtmupd" gorm:"column:dtmupd"`
-	IsSendEmail string    `json:"IsSendEmail"`
+	DateUpd      time.Time `json:"dtmupd" gorm:"column:dtmupd"`
+	IsSendEmail  string    `json:"IsSendEmail"`
+	ForAgingDays time.Time `json:"ForAgingDays" gorm:"column:foragingdays"`
 }

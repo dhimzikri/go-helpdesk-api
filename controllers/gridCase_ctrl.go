@@ -483,8 +483,8 @@ func SaveCaseHandler(c *gin.Context) {
 		// existingTicket.IsSendEmail = input.IsSendEmail
 		// existingTicket.Email = input.Email //it must disable (enable it for debug only)
 		// existingTicket.CallerID = input.CallerID //it must disable (enable it for debug only)
-		// existingTicket.ForAgingDays = input.ForAgingDays
 		// ============enable for debug only=====================================
+		existingTicket.ForAgingDays = input.ForAgingDays
 		existingTicket.CustomerName = input.CustomerName //currently enabled, use in debug
 		existingTicket.PhoneNo = input.PhoneNo
 		existingTicket.Email_ = input.Email_
