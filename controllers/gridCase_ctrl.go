@@ -11,12 +11,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/patrickmn/go-cache"
 	"gopkg.in/gomail.v2"
 )
 
 // GetCases retrieves cases with pagination, search, and total count
-var caseCache = cache.New(5*time.Minute, 10*time.Minute)
+// var caseCache = cache.New(5*time.Minute, 10*time.Minute)
 
 func GetCase(c *gin.Context) {
 	// Skip session logic - No need to retrieve user_name from session
@@ -65,14 +64,14 @@ func GetCase(c *gin.Context) {
 	whereClause := strings.Join(conditions, " AND ")
 
 	// Generate a unique cache key based on query parameters
-	cacheKey := fmt.Sprintf("cases_page_%d_limit_%d_conditions_%s", pageNum, limitNum, whereClause)
+	// cacheKey := fmt.Sprintf("cases_page_%d_limit_%d_conditions_%s", pageNum, limitNum, whereClause)
 
 	// Check if the data is already in the cache
-	if cachedData, found := caseCache.Get(cacheKey); found {
-		// Return cached data
-		c.JSON(http.StatusOK, cachedData)
-		return
-	}
+	// if cachedData, found := caseCache.Get(cacheKey); found {
+	// Return cached data
+	// 	c.JSON(http.StatusOK, cachedData)
+	// 	return
+	// }
 
 	// Build SQL query for counting total records
 	sqlCount := fmt.Sprintf(`
@@ -128,7 +127,7 @@ func GetCase(c *gin.Context) {
 	}
 
 	// Store the response in cache
-	caseCache.Set(cacheKey, response, cache.DefaultExpiration)
+	// caseCache.Set(cacheKey, response, cache.DefaultExpiration)
 
 	// Return the results in JSON format
 	c.JSON(http.StatusOK, response)
