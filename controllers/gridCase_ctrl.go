@@ -497,7 +497,7 @@ func SaveCaseHandler(c *gin.Context) {
 		existingTicket.StatusDescription = input.StatusDescription
 		existingTicket.DateUpd = dtmupd
 		existingTicket.DateCr = input.DateCr
-		existingTicket.IsSendEmail = input.IsSendEmail
+		// existingTicket.IsSendEmail = input.IsSendEmail
 
 		// Update the existing case
 		if err := config.DB.Table("Case").Omit("statusname", "IsSendEmail", "is_send_email").Save(&existingTicket).Error; err != nil {
