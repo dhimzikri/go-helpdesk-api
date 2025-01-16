@@ -7,7 +7,7 @@ type Case struct {
 	ApplicationID     string    `json:"ApplicationID" gorm:"column:applicationid"`
 	BranchID          string    `json:"BranchID" binding:"required" gorm:"column:branchid"`
 	CallerID          string    `json:"CallerID" gorm:"column:callerid"`
-	ContactID         int       `json:"ContactID" gorm:"column:applicationid"`
+	ContactID         int       `json:"ContactID" gorm:"column:contactid"`
 	CustomerID        string    `json:"CustomerID" gorm:"column:customerid"`
 	CustomerName      string    `json:"CustomerName" gorm:"column:customername"`
 	DateCr            string    `json:"DateCr" binding:"required" gorm:"column:date_cr"`
