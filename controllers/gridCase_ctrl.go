@@ -132,6 +132,19 @@ func GetCase(c *gin.Context) {
 	// Return the results in JSON format
 	c.JSON(http.StatusOK, response)
 }
+func executeQuery(query string, args ...interface{}) error {
+	// Log the query and its parameters for debugging
+	log.Printf("Executing Query: %s | Params: %v", query, args)
+
+	// Execute the query
+	if err := config.DB.Exec(query, args...).Error; err != nil {
+		// Log the error if the query fails
+		log.Printf("Query Execution Failed: %s | Params: %v | Error: %v", query, args, err)
+		return err
+	}
+
+	return nil
+}
 
 func SaveCaseHandler(c *gin.Context) {
 	// Retrieve user_name from session
@@ -289,15 +302,14 @@ func SaveCaseHandler(c *gin.Context) {
 
 	// Insert into the `Case` table for new ticket
 	insertCaseQuery := `INSERT INTO [case]
-                (ticketno, flagcompany, branchid, agreementno, applicationid, customerid,
-                customername, phoneno, email, statusid, typeid, subtypeid, priorityid,
-                description, usrupd, contactid, relationid, relationname, callerid, email_, date_cr, foragingdays)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	if err := config.DB.Exec(insertCaseQuery,
+	(ticketno, flagcompany, branchid, agreementno, applicationid, customerid,
+	customername, phoneno, email, statusid, typeid, subtypeid, priorityid,
+	description, usrupd, contactid, relationid, relationname, callerid, email_, date_cr, foragingdays)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	if err := executeQuery(insertCaseQuery,
 		ticketNo, input.FlagCompany, input.BranchID, input.AgreementNo, input.ApplicationID, input.CustomerID,
 		input.CustomerName, input.PhoneNo, input.Email, input.StatusID, input.TypeID, input.SubTypeID, input.PriorityID,
-		input.Description, userName, input.ContactID, input.RelationID, input.RelationName, input.CallerID, input.Email_, input.DateCr, currentDate_forAging).Error; err != nil {
-		log.Printf("Failed to insert into case table: %v", err)
+		input.Description, userName, input.ContactID, input.RelationID, input.RelationName, input.CallerID, input.Email_, input.DateCr, currentDate_forAging); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert case data"})
 		return
 	}
@@ -311,19 +323,17 @@ func SaveCaseHandler(c *gin.Context) {
 	}
 
 	insertHistoryQuery := `INSERT INTO Case_History 
-	(id, ticketno, description, statusid, usrupd, dtmupd) 
-	VALUES (?, ?, ?, ?, ?, GETDATE())`
-	if err := config.DB.Exec(insertHistoryQuery, nextID, ticketNo, input.Description, input.StatusID, userName).Error; err != nil {
-		log.Printf("Failed to insert into Case_History: %v", err)
+        (id, ticketno, description, statusid, usrupd, dtmupd) 
+        VALUES (?, ?, ?, ?, ?, GETDATE())`
+	if err := executeQuery(insertHistoryQuery, nextID, ticketNo, input.Description, input.StatusID, userName); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert case history data"})
 		return
 	}
 
 	// Log the operation
 	logQuery := `INSERT INTO tbllog (tgl, table_name, menu, script) 
-	VALUES (?, '[case]', 'SaveCaseHandler', ?)`
-	if err := config.DB.Exec(logQuery, time.Now(), fmt.Sprintf("INSERT INTO [case] VALUES (%s, ...)", ticketNo)).Error; err != nil {
-		log.Printf("Failed to log operation: %v", err)
+        VALUES (?, '[case]', 'SaveCaseHandler', ?)`
+	if err := executeQuery(logQuery, time.Now(), fmt.Sprintf("INSERT INTO [case] VALUES (%s, ...)", ticketNo)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to log operation"})
 		return
 	}
