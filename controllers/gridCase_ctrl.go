@@ -472,6 +472,7 @@ func SaveCaseHandler(c *gin.Context) {
 	var existingTicket models.Case
 	dtmupd := time.Now()
 	if err := config.DB.Table("Case").Where("ticketno = ?", input.TicketNo).First(&existingTicket).Error; err == nil {
+		// ============enable for debug only=====================================
 		// Ticket exists, perform an update
 		// existingTicket.TicketNo = input.TicketNo //it must disable (enable it for debug only)
 		// existingTicket.FlagCompany = input.FlagCompany //it must disable (enable it for debug only)
@@ -479,9 +480,13 @@ func SaveCaseHandler(c *gin.Context) {
 		// existingTicket.AgreementNo = input.AgreementNo //it must disable (enable it for debug only)
 		// existingTicket.ApplicationID = input.ApplicationID //it must disable (enable it for debug only)
 		// existingTicket.CustomerID = input.CustomerID //it must disable (enable it for debug only)
+		// existingTicket.IsSendEmail = input.IsSendEmail
+		// existingTicket.Email = input.Email //it must disable (enable it for debug only)
+		// existingTicket.CallerID = input.CallerID //it must disable (enable it for debug only)
+		// existingTicket.ForAgingDays = input.ForAgingDays
+		// ============enable for debug only=====================================
 		existingTicket.CustomerName = input.CustomerName //currently enabled, use in debug
 		existingTicket.PhoneNo = input.PhoneNo
-		// existingTicket.Email = input.Email //it must disable (enable it for debug only)
 		existingTicket.Email_ = input.Email_
 		existingTicket.StatusID = input.StatusID
 		existingTicket.TypeID = input.TypeID
@@ -492,12 +497,9 @@ func SaveCaseHandler(c *gin.Context) {
 		existingTicket.ContactID = input.ContactID
 		existingTicket.RelationID = input.RelationID
 		existingTicket.RelationName = input.RelationName
-		// existingTicket.CallerID = input.CallerID //it must disable (enable it for debug only)
-		// existingTicket.ForAgingDays = input.ForAgingDays
 		existingTicket.StatusDescription = input.StatusDescription
 		existingTicket.DateUpd = dtmupd
 		existingTicket.DateCr = input.DateCr
-		// existingTicket.IsSendEmail = input.IsSendEmail
 
 		// Update the existing case
 		if err := config.DB.Table("Case").Omit("statusname", "IsSendEmail", "is_send_email").Save(&existingTicket).Error; err != nil {
