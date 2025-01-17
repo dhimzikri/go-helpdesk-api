@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"golang-sqlserver-app/config"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -278,8 +279,29 @@ func GetSubType(c *gin.Context) {
 	// Define a slice of maps to hold the query results
 	var results []map[string]interface{}
 
-	// Execute the query using GORM's raw SQL method
-	if err := config.DB.Table("tblSubType").Find(&results).Error; err != nil {
+	// Get query parameters
+	query := c.Query("query")
+	col := c.Query("col")
+	typeIDStr := c.Query("typeid")
+
+	// Convert typeID to integer
+	typeID, err := strconv.Atoi(typeIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid typeid"})
+		return
+	}
+
+	// Build the base query
+	dbQuery := config.DB.Table("tblSubType").Where("typeid = ? AND isactive = 1", typeID)
+
+	// Add search condition if query and col are provided
+	if query != "" && col != "" {
+		searchColumn := col + " LIKE ?"
+		dbQuery = dbQuery.Where(searchColumn, "%"+query+"%")
+	}
+
+	// Execute the query and fetch results
+	if err := dbQuery.Find(&results).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
@@ -297,6 +319,30 @@ func GetSubType(c *gin.Context) {
 		"data":    results,
 	})
 }
+
+// func GetSubType(c *gin.Context) {
+// 	// Define a slice of maps to hold the query results
+// 	var results []map[string]interface{}
+
+// 	// Execute the query using GORM's raw SQL method
+// 	if err := config.DB.Table("tblSubType").Find(&results).Error; err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+// 		return
+// 	}
+
+// 	// Check if any data was retrieved
+// 	if len(results) == 0 {
+// 		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
+// 		return
+// 	}
+
+// 	// Return the results as JSON
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"success": true,
+// 		"total":   len(results),
+// 		"data":    results,
+// 	})
+// }
 
 func GetHolidays(c *gin.Context) {
 	// Define a slice of maps to hold the query results
