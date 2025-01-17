@@ -78,7 +78,7 @@ func GetCase(c *gin.Context) {
 		SELECT COUNT(*)
 		FROM [Case] a
 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
-		LEFT JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
+		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID
 		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
 		INNER JOIN status e ON a.statusid = e.statusid
 		INNER JOIN contact f ON a.contactid = f.contactid
@@ -104,7 +104,7 @@ func GetCase(c *gin.Context) {
 			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.email_, a.foragingdays
 		FROM [Case] a
 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
-		LEFT JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
+		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID
 		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
 		INNER JOIN status e ON a.statusid = e.statusid
 		INNER JOIN contact f ON a.contactid = f.contactid
