@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 	"golang-sqlserver-app/config"
+	"golang-sqlserver-app/models"
 	"log"
 	"net/http"
 	"strconv"
@@ -131,50 +132,9 @@ func GetCase(c *gin.Context) {
 	// Return the results in JSON format
 	c.JSON(http.StatusOK, response)
 }
-func executeQuery(query string, args ...interface{}) error {
-	// Log the query and its parameters for debugging
-	log.Printf("Executing Query: %s | Params: %v", query, args)
-
-	// Execute the query
-	if err := config.DB.Exec(query, args...).Error; err != nil {
-		// Log the error if the query fails
-		log.Printf("Query Execution Failed: %s | Params: %v | Error: %v", query, args, err)
-		return err
-	}
-
-	return nil
-}
-
-// models/case.go
-type CaseRequest struct {
-	Task          string `json:"task" binding:"required"`
-	IsSendEmail   string `json:"IsSendEmail"`
-	AgreementNo   string `json:"AgreementNo"`
-	ApplicationID string `json:"ApplicationID"`
-	BranchID      string `json:"BranchID"`
-	CallerID      string `json:"CallerID"`
-	ContactID     int    `json:"ContactID"`
-	CustomerID    string `json:"CustomerID"`
-	CustomerName  string `json:"CustomerName"`
-	DateCr        string `json:"DateCr"`
-	Description   string `json:"Description"`
-	Email         string `json:"Email"`
-	Email_        string `json:"Email_"`
-	FlagCompany   string `json:"FlagCompany"`
-	PhoneNo       string `json:"PhoneNo"`
-	PriorityID    int    `json:"PriorityID"`
-	RelationID    int    `json:"RelationID"`
-	RelationName  string `json:"RelationName"`
-	StatusID      int    `json:"StatusID"`
-	SubTypeID     int    `json:"SubTypeID"`
-	TicketNo      string `json:"TicketNo"`
-	TypeID        int    `json:"TypeID"`
-	UserID        string `json:"UserID"`
-	Flag          string `json:"Flag"`
-}
 
 func SaveCase(c *gin.Context) {
-	var request CaseRequest
+	var request models.CaseRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": "Invalid request format", "error": err.Error()})
 		return
@@ -279,7 +239,7 @@ func nullIfEmpty(s string) string {
 	return s
 }
 
-func sendCaseEmail(db *gorm.DB, trancodeid string, request CaseRequest) error {
+func sendCaseEmail(db *gorm.DB, trancodeid string, request models.CaseRequest) error {
 	var sendEmailFlag string
 	switch request.StatusID {
 	case 1, 2, 3, 4:
