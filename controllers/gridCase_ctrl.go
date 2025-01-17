@@ -231,6 +231,13 @@ func SaveCase(c *gin.Context) {
 	})
 }
 
+func nullIfEmpty(s string) string {
+	if strings.TrimSpace(s) == "" {
+		return "NULL"
+	}
+	return s
+}
+
 func SendCaseEmail(db *gorm.DB, trancodeid string, request models.CaseRequest) error {
 	var sendEmailFlag string
 	switch request.StatusID {

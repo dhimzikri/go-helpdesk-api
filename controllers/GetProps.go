@@ -371,10 +371,3 @@ func SettingEmail(subject, bodyEmail, recipient, trancodeid string) error {
 	log.Printf("Email sent successfully for TrancodeID %s", trancodeid)
 	return nil
 }
-
-func nullIfEmpty(s string) string {
-	if strings.TrimSpace(s) == "" {
-		return "NULL"
-	}
-	return s
-}

@@ -25,11 +25,11 @@ func main() {
 		log.Fatalf("Failed to set trusted proxies: %v", err)
 	}
 
-	// Middleware
+	// Middleware to get the client IP from X-Forwarded-For
 	r.Use(func(c *gin.Context) {
 		clientIP := c.Request.Header.Get("X-Forwarded-For")
 		if clientIP == "" {
-			clientIP = c.ClientIP()
+			clientIP = c.ClientIP() // Fallback to Gin's default method if X-Forwarded-For is not set
 		}
 
 		log.Printf("Client IP: %s", clientIP) // Log the client IP
