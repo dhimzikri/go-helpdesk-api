@@ -1,28 +1,30 @@
 package models
 
-type CaseRequest struct {
-	Task          string `json:"task" binding:"required"`
-	IsSendEmail   string `json:"IsSendEmail"`
-	AgreementNo   string `json:"AgreementNo"`
-	ApplicationID string `json:"ApplicationID"`
-	BranchID      string `json:"BranchID"`
-	CallerID      string `json:"CallerID"`
-	ContactID     int    `json:"ContactID"`
-	CustomerID    string `json:"CustomerID"`
-	CustomerName  string `json:"CustomerName"`
-	DateCr        string `json:"DateCr"`
-	Description   string `json:"Description"`
-	Email         string `json:"Email"`
-	Email_        string `json:"Email_"`
-	FlagCompany   string `json:"FlagCompany"`
-	PhoneNo       string `json:"PhoneNo"`
-	PriorityID    int    `json:"PriorityID"`
-	RelationID    int    `json:"RelationID"`
-	RelationName  string `json:"RelationName"`
-	StatusID      int    `json:"StatusID"`
-	SubTypeID     int    `json:"SubTypeID"`
-	TicketNo      string `json:"TicketNo"`
-	TypeID        int    `json:"TypeID"`
-	UserID        string `json:"UserID"`
-	Flag          string `json:"Flag"`
+import "time"
+
+type Case struct {
+	AgreementNo   string    `json:"AgreementNo" gorm:"column:agreementno"`
+	ApplicationID string    `json:"ApplicationID" gorm:"column:applicationid"`
+	BranchID      string    `json:"BranchID" binding:"required" gorm:"column:branchid"`
+	CallerID      string    `json:"CallerID" gorm:"column:callerid"`
+	ContactID     int       `json:"ContactID" gorm:"column:contactid"`
+	CustomerID    string    `json:"CustomerID" gorm:"column:customerid"`
+	CustomerName  string    `json:"CustomerName" gorm:"column:customername"`
+	DateCr        string    `json:"DateCr" binding:"required" gorm:"column:date_cr"`
+	Description   string    `json:"Description" gorm:"column:description"`
+	Email         string    `json:"Email" gorm:"column:email"`
+	Email_        string    `json:"Email_" gorm:"column:email_"`
+	FlagCompany   string    `json:"FlagCompany" binding:"required" gorm:"column:flagcompany"`
+	PhoneNo       string    `json:"PhoneNo" gorm:"column:phoneno"`
+	PriorityID    int       `json:"PriorityID" gorm:"column:priorityid"`
+	RelationID    int       `json:"RelationID" gorm:"column:relationid"`
+	RelationName  string    `json:"RelationName" gorm:"column:relationname"`
+	StatusID      int       `json:"StatusID" binding:"required" gorm:"column:statusid"`
+	SubTypeID     int       `json:"SubTypeID" gorm:"column:subtypeid"`
+	TicketNo      string    `json:"TicketNo" gorm:"primaryKey;column:ticketno"`
+	TypeID        int       `json:"TypeID"  gorm:"column:typeid"`
+	UserID        string    `json:"UserID" binding:"required" gorm:"column:usrupd"`
+	DateUpd       time.Time `json:"dtmupd" gorm:"column:dtmupd"`
+	IsSendEmail   string    `json:"IsSendEmail"`
+	ForAgingDays  time.Time `json:"ForAgingDays" gorm:"column:foragingdays"`
 }

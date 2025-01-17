@@ -3,14 +3,12 @@ package controllers
 import (
 	"fmt"
 	"golang-sqlserver-app/config"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/patrickmn/go-cache"
-	"gopkg.in/gomail.v2"
 )
 
 func GetTblType(c *gin.Context) {
@@ -346,28 +344,4 @@ func GetEmailSetting(c *gin.Context) {
 		"total":   len(results),
 		"data":    results,
 	})
-}
-
-func SettingEmail(subject, bodyEmail, recipient, trancodeid string) error {
-	mail := gomail.NewMessage()
-
-	mail.SetHeader("From", "passadmin@cnaf.co.id", "INFO CS CIMBNIAGA FINANCE")
-	mail.SetHeader("To", recipient)
-	mail.SetHeader("Subject", subject)
-	mail.SetBody("text/html", bodyEmail)
-
-	dialer := gomail.NewDialer(
-		"smtp-mail.outlook.com", // SMTP host
-		587,                     // Port
-		"passadmin@cnaf.co.id",  // Email address
-		"123456.Aa",             // Email password
-	)
-
-	if err := dialer.DialAndSend(mail); err != nil {
-		log.Printf("Failed to send email for TrancodeID %s: %v", trancodeid, err)
-		return err
-	}
-
-	log.Printf("Email sent successfully for TrancodeID %s", trancodeid)
-	return nil
 }
