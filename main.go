@@ -31,11 +31,14 @@ func main() {
 		if clientIP == "" {
 			clientIP = c.ClientIP()
 		}
+
+		log.Printf("Client IP: %s", clientIP) // Log the client IP
+		c.Next()
 	})
 
 	// Configure CORS
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://172.16.6.34:81"},
+		AllowOrigins:     []string{"http://172.16.6.34:81"}, // Allow all origins
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"*"},
 		ExposeHeaders:    []string{"Content-Length"},
