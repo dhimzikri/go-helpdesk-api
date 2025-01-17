@@ -25,20 +25,17 @@ func main() {
 		log.Fatalf("Failed to set trusted proxies: %v", err)
 	}
 
-	// Middleware to get the client IP from X-Forwarded-For
+	// Middleware
 	r.Use(func(c *gin.Context) {
 		clientIP := c.Request.Header.Get("X-Forwarded-For")
 		if clientIP == "" {
-			clientIP = c.ClientIP() // Fallback to Gin's default method if X-Forwarded-For is not set
+			clientIP = c.ClientIP()
 		}
-
-		log.Printf("Client IP: %s", clientIP) // Log the client IP
-		c.Next()
 	})
 
 	// Configure CORS
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://172.16.6.34:81"}, // Allow all origins
+		AllowOrigins:     []string{"http://172.16.6.34:81"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"*"},
 		ExposeHeaders:    []string{"Content-Length"},
