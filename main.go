@@ -54,6 +54,7 @@ func main() {
 	r.GET("/getCase", controllers.GetCase)
 	r.GET("/getNewCase", controllers.GetCaseNewCust)
 	r.POST("/saveCase", controllers.SaveCase)
+	r.POST("/SaveNewCase", controllers.SaveNewCase)
 	r.POST("/closeCase", controllers.CloseCase)
 	r.GET("/getRelation", controllers.GetRelation)
 	r.GET("/getStatus", controllers.GetTblStatus)

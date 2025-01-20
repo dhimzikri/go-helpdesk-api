@@ -351,6 +351,106 @@ func SaveCase(c *gin.Context) {
 	})
 }
 
+func SaveNewCase(c *gin.Context) {
+	var request models.CaseRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": "Invalid request format", "error": err.Error()})
+		return
+	}
+
+	// Convert status to string for comparison
+	statusStr := fmt.Sprintf("%d", request.StatusID)
+
+	sql := `
+    BEGIN TRY  
+        SET NOCOUNT ON;
+        DECLARE @trancodeid VARCHAR(20);
+        
+        EXEC sp_insertcase ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @trancodeid OUTPUT;
+        
+        -- Log the operation
+        INSERT INTO tbllog ([tgl], [table_name], [menu], [script])
+        SELECT GETDATE(), '[case]', 'gridcase', 'Executed insert case with status: ' + ?;
+        
+        SELECT @trancodeid AS trancodeid;
+    END TRY
+    BEGIN CATCH
+        SELECT ERROR_NUMBER() AS ErrorNumber, 
+               ERROR_MESSAGE() AS ErrorMessage;
+    END CATCH;`
+
+	params := []interface{}{
+		request.TicketNo,
+		request.FlagCompany,
+		request.BranchID,
+		strings.TrimSpace(request.AgreementNo),
+		strings.TrimSpace(request.ApplicationID),
+		strings.TrimSpace(request.CustomerID),
+		request.CustomerName,
+		request.PhoneNo,
+		request.Email,
+		statusStr,
+		request.TypeID,
+		request.SubTypeID,
+		request.PriorityID,
+		request.Description,
+		request.UserID,
+		request.ContactID,
+		request.RelationID,
+		request.RelationName,
+		request.CallerID,
+		request.Email_,
+		request.DateCr,
+		"0",       // forAgingDays
+		statusStr, // for the log message
+	}
+
+	// Execute query and scan result
+	rows, err := config.DB.Raw(sql, params...).Rows()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"msg":     "Failed to execute query",
+			"error":   err.Error(),
+		})
+		return
+	}
+	defer rows.Close()
+
+	var trancodeid string
+	if rows.Next() {
+		if err := rows.Scan(&trancodeid); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"msg":     "Failed to scan result",
+				"error":   err.Error(),
+			})
+			return
+		}
+	}
+
+	if request.IsSendEmail == "true" {
+		go func() {
+			emailErr := sendCaseEmail(config.DB, trancodeid, request)
+			if emailErr != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"success":    true,
+					"msg":        "Case saved but email sending failed",
+					"trancodeid": trancodeid,
+					"emailError": emailErr.Error(),
+				})
+				return
+			}
+		}()
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":    true,
+		"msg":        "Case saved successfully",
+		"trancodeid": trancodeid,
+	})
+}
+
 func CloseCase(c *gin.Context) {
 	var request models.CaseRequest
 
