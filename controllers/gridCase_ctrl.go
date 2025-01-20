@@ -431,7 +431,7 @@ func SaveNewCase(c *gin.Context) {
 
 	if request.IsSendEmail == "true" {
 		go func() {
-			emailErr := sendCaseEmail(config.DB, trancodeid, request)
+			emailErr := sendNewCaseEmail(config.DB, trancodeid, request)
 			if emailErr != nil {
 				c.JSON(http.StatusOK, gin.H{
 					"success":    true,
