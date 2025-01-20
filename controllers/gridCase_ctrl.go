@@ -348,17 +348,10 @@ func CloseCase(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":    true,
-		"msg":        "Case saved successfully",
+		"msg":        "Case Close successfully",
 		"trancodeid": trancodeid,
 	})
 }
-
-// func nullIfEmpty(s string) string {
-// 	if strings.TrimSpace(s) == "" {
-// 		return "NULL"
-// 	}
-// 	return s
-// }
 
 func sendCaseEmail(db *gorm.DB, trancodeid string, request models.CaseRequest) error {
 	var sendEmailFlag string
