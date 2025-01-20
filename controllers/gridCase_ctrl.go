@@ -162,7 +162,7 @@ func SaveCase(c *gin.Context) {
     END CATCH;`
 
 	params := []interface{}{
-		nullIfEmpty(request.TicketNo),
+		request.TicketNo,
 		request.FlagCompany,
 		request.BranchID,
 		strings.TrimSpace(request.AgreementNo),
@@ -179,7 +179,7 @@ func SaveCase(c *gin.Context) {
 		request.UserID,
 		request.ContactID,
 		request.RelationID,
-		nullIfEmpty(request.RelationName),
+		request.RelationName,
 		request.CallerID,
 		request.Email_,
 		request.DateCr,
@@ -232,12 +232,12 @@ func SaveCase(c *gin.Context) {
 	})
 }
 
-func nullIfEmpty(s string) string {
-	if strings.TrimSpace(s) == "" {
-		return "NULL"
-	}
-	return s
-}
+// func nullIfEmpty(s string) string {
+// 	if strings.TrimSpace(s) == "" {
+// 		return "NULL"
+// 	}
+// 	return s
+// }
 
 func sendCaseEmail(db *gorm.DB, trancodeid string, request models.CaseRequest) error {
 	var sendEmailFlag string
