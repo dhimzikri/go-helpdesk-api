@@ -513,6 +513,64 @@ func sendCaseEmail(db *gorm.DB, trancodeid string, request models.CaseRequest) e
 	return nil
 }
 
+func sendNewCaseEmail(db *gorm.DB, trancodeid string, request models.CaseRequest) error {
+	var sendEmailFlag string
+	switch request.StatusID {
+	case 1, 2, 3, 4:
+		sendEmailFlag = "SendTicket"
+	case 5:
+		sendEmailFlag = "SendTicketForExtend"
+	default:
+		return nil
+	}
+
+	// Set ticketno same as trancodeid if empty
+	ticketno := request.TicketNo
+	if strings.TrimSpace(ticketno) == "" {
+		ticketno = trancodeid
+	}
+
+	data := fmt.Sprintf("%s|%s", request.CustomerName, ticketno)
+
+	// Use both trancodeid and ticketno in parameters
+	emailSQL := `
+	SET NOCOUNT ON;
+	EXEC sp_getsendEmail 
+		@trancodeid = ?,
+		@ticketno = ?,
+		@emailto = ?,
+		@data = ?,
+		@flag = ?,
+		@usrupd = ?
+	`
+	rows, err := db.Raw(emailSQL,
+		trancodeid,     // @trancodeid
+		ticketno,       // @ticketno
+		request.Email,  // @email
+		data,           // @data
+		sendEmailFlag,  // @flag
+		request.UserID, // @userid
+	).Rows()
+
+	if err != nil {
+		return fmt.Errorf("failed to execute email query: %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var subject, body, recipient, trancodeid string
+		if err := rows.Scan(&subject, &body, &recipient, &trancodeid); err != nil {
+			return fmt.Errorf("failed to scan email details: %v", err)
+		}
+
+		if err := SendEmail(subject, body, recipient, trancodeid); err != nil {
+			return fmt.Errorf("failed to send email: %v", err)
+		}
+	}
+
+	return nil
+}
+
 func SendEmail(subject, bodyEmail, recipient, trancodeid string) error {
 	mail := gomail.NewMessage()
 
