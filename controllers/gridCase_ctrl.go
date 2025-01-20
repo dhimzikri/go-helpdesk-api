@@ -8,14 +8,16 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/patrickmn/go-cache"
 	"gopkg.in/gomail.v2"
 	"gorm.io/gorm"
 )
 
 // GetCases retrieves cases with pagination, search, and total count
-// var caseCache = cache.New(5*time.Minute, 10*time.Minute)
+var caseCache = cache.New(5*time.Minute, 10*time.Minute)
 
 func GetCase(c *gin.Context) {
 	// Skip session logic - No need to retrieve user_name from session
@@ -64,14 +66,14 @@ func GetCase(c *gin.Context) {
 	whereClause := strings.Join(conditions, " AND ")
 
 	// Generate a unique cache key based on query parameters
-	// cacheKey := fmt.Sprintf("cases_page_%d_limit_%d_conditions_%s", pageNum, limitNum, whereClause)
+	cacheKey := fmt.Sprintf("cases_page_%d_limit_%d_conditions_%s", pageNum, limitNum, whereClause)
 
 	// Check if the data is already in the cache
-	// if cachedData, found := caseCache.Get(cacheKey); found {
-	// Return cached data
-	// 	c.JSON(http.StatusOK, cachedData)
-	// 	return
-	// }
+	if cachedData, found := caseCache.Get(cacheKey); found {
+		// Return cached data
+		c.JSON(http.StatusOK, cachedData)
+		return
+	}
 
 	// Build SQL query for counting total records
 	sqlCount := fmt.Sprintf(`
@@ -211,19 +213,34 @@ func SaveCase(c *gin.Context) {
 		}
 	}
 
-	// Handle email sending if required
 	if request.IsSendEmail == "true" {
-		emailErr := sendCaseEmail(config.DB, trancodeid, request)
-		if emailErr != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success":    true,
-				"msg":        "Case saved but email sending failed",
-				"trancodeid": trancodeid,
-				"emailError": emailErr.Error(),
-			})
-			return
-		}
+		go func() {
+			emailErr := sendCaseEmail(config.DB, trancodeid, request)
+			if emailErr != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"success":    true,
+					"msg":        "Case saved but email sending failed",
+					"trancodeid": trancodeid,
+					"emailError": emailErr.Error(),
+				})
+				return
+			}
+		}()
 	}
+
+	// Handle email sending if required
+	// if request.IsSendEmail == "true" {
+	// 	emailErr := sendCaseEmail(config.DB, trancodeid, request)
+	// 	if emailErr != nil {
+	// 		c.JSON(http.StatusOK, gin.H{
+	// 			"success":    true,
+	// 			"msg":        "Case saved but email sending failed",
+	// 			"trancodeid": trancodeid,
+	// 			"emailError": emailErr.Error(),
+	// 		})
+	// 		return
+	// 	}
+	// }
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":    true,
