@@ -20,14 +20,7 @@ import (
 var caseCache = cache.New(5*time.Minute, 10*time.Minute)
 
 func GetCase(c *gin.Context) {
-	// Get case type from query parameter (newcust or existing)
-	caseType := c.DefaultQuery("casetype", "existing")
-
-	// Determine table name based on case type
-	tableName := "Case"
-	if caseType == "newcust" {
-		tableName = "Case_NewCustomer"
-	}
+	// Skip session logic - No need to retrieve user_name from session
 
 	// Get page number and limit from query parameters
 	page := c.DefaultQuery("page", "1")
@@ -66,38 +59,34 @@ func GetCase(c *gin.Context) {
 		}
 	}
 
-	// Add condition for statusid
+	// Add condition for statusid (you may choose to remove or modify this based on your requirements)
 	conditions = append(conditions, "a.statusid <> 1")
 
 	// Combine conditions with "AND"
 	whereClause := strings.Join(conditions, " AND ")
 
-	// Generate a unique cache key based on query parameters and case type
-	cacheKey := fmt.Sprintf("cases_%s_page_%d_limit_%d_conditions_%s",
-		caseType, pageNum, limitNum, whereClause)
+	// Generate a unique cache key based on query parameters
+	cacheKey := fmt.Sprintf("cases_page_%d_limit_%d_conditions_%s", pageNum, limitNum, whereClause)
 
 	// Check if the data is already in the cache
 	if cachedData, found := caseCache.Get(cacheKey); found {
+		// Return cached data
 		c.JSON(http.StatusOK, cachedData)
 		return
 	}
 
-	// Build base query template that will be used for both count and data queries
-	baseQueryTemplate := `
-		FROM [%s] a
+	// Build SQL query for counting total records
+	sqlCount := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM [Case] a
 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
 		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
 		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
 		INNER JOIN status e ON a.statusid = e.statusid
 		INNER JOIN contact f ON a.contactid = f.contactid
 		INNER JOIN relation g ON a.relationid = g.relationid
-		WHERE %s`
-
-	// Format the base query with the appropriate table name
-	baseQuery := fmt.Sprintf(baseQueryTemplate, tableName, whereClause)
-
-	// Build and execute count query
-	sqlCount := fmt.Sprintf("SELECT COUNT(*) %s", baseQuery)
+		WHERE %s
+	`, whereClause)
 
 	var totalCount int64
 	if err := config.DB.Raw(sqlCount).Scan(&totalCount).Error; err != nil {
@@ -105,7 +94,7 @@ func GetCase(c *gin.Context) {
 		return
 	}
 
-	// Build and execute data query
+	// Build SQL query for fetching paginated data
 	sqlQuery := fmt.Sprintf(`
 		SELECT 
 			ROW_NUMBER() OVER (ORDER BY RIGHT(a.ticketno, 3) DESC) AS RowNumber,
@@ -114,12 +103,18 @@ func GetCase(c *gin.Context) {
 			a.priorityid, d.Description AS prioritydescription, a.statusid, e.statusname,
 			e.description AS statusdescription, a.customername, a.branchid, a.description, a.phoneno,
 			a.email, a.usrupd, a.dtmupd, a.date_cr, f.contactid, f.Description AS contactdescription,
-			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.email_, 
-			a.foragingdays
-		%s
+			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.email_, a.foragingdays
+		FROM [Case] a
+		INNER JOIN tbltype b ON a.TypeID = b.TypeID
+		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
+		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
+		INNER JOIN status e ON a.statusid = e.statusid
+		INNER JOIN contact f ON a.contactid = f.contactid
+		INNER JOIN relation g ON a.relationid = g.relationid
+		WHERE %s
 		ORDER BY RIGHT(a.ticketno, 3) DESC
 		OFFSET %d ROWS FETCH NEXT %d ROWS ONLY
-	`, baseQuery, offset, limitNum)
+	`, whereClause, offset, limitNum)
 
 	var cases []map[string]interface{}
 	if err := config.DB.Raw(sqlQuery).Scan(&cases).Error; err != nil {
@@ -140,237 +135,121 @@ func GetCase(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// func GetCase(c *gin.Context) {
-// 	// Skip session logic - No need to retrieve user_name from session
+func GetCaseNewCust(c *gin.Context) {
+	// Skip session logic - No need to retrieve user_name from session
 
-// 	// Get page number and limit from query parameters
-// 	page := c.DefaultQuery("page", "1")
-// 	limit := c.DefaultQuery("limit", "30")
+	// Get page number and limit from query parameters
+	page := c.DefaultQuery("page", "1")
+	limit := c.DefaultQuery("limit", "30")
 
-// 	// Convert page and limit to integers
-// 	pageNum, limitNum := 1, 30
-// 	pageNum, _ = strconv.Atoi(page)
-// 	limitNum, _ = strconv.Atoi(limit)
+	// Convert page and limit to integers
+	pageNum, limitNum := 1, 30
+	pageNum, _ = strconv.Atoi(page)
+	limitNum, _ = strconv.Atoi(limit)
 
-// 	// Calculate offset for pagination
-// 	offset := (pageNum - 1) * limitNum
+	// Calculate offset for pagination
+	offset := (pageNum - 1) * limitNum
 
-// 	// Build dynamic WHERE conditions for search
-// 	var conditions []string
+	// Build dynamic WHERE conditions for search
+	var conditions []string
 
-// 	// Define a map of query parameters and their corresponding database fields
-// 	fields := map[string]string{
-// 		"ticketno":      "a.ticketno",
-// 		"agreementno":   "a.agreementno",
-// 		"applicationid": "a.applicationid",
-// 		"customername":  "a.customername",
-// 		"priority":      "d.Description",
-// 		"status":        "e.statusname",
-// 		"usrupd":        "a.usrupd",
-// 	}
+	// Define a map of query parameters and their corresponding database fields
+	fields := map[string]string{
+		"ticketno":      "a.ticketno",
+		"agreementno":   "a.agreementno",
+		"applicationid": "a.applicationid",
+		"customername":  "a.customername",
+		"priority":      "d.Description",
+		"status":        "e.statusname",
+		"usrupd":        "a.usrupd",
+	}
 
-// 	// Iterate over the map and add conditions dynamically
-// 	for param, field := range fields {
-// 		if value := c.Query(param); value != "" {
-// 			if param == "usrupd" { // Handle exact match for usrupd
-// 				conditions = append(conditions, fmt.Sprintf("%s = '%s'", field, value))
-// 			} else { // Handle LIKE conditions for other fields
-// 				conditions = append(conditions, fmt.Sprintf("%s LIKE '%%%s%%'", field, value))
-// 			}
-// 		}
-// 	}
+	// Iterate over the map and add conditions dynamically
+	for param, field := range fields {
+		if value := c.Query(param); value != "" {
+			if param == "usrupd" { // Handle exact match for usrupd
+				conditions = append(conditions, fmt.Sprintf("%s = '%s'", field, value))
+			} else { // Handle LIKE conditions for other fields
+				conditions = append(conditions, fmt.Sprintf("%s LIKE '%%%s%%'", field, value))
+			}
+		}
+	}
 
-// 	// Add condition for statusid (you may choose to remove or modify this based on your requirements)
-// 	conditions = append(conditions, "a.statusid <> 1")
+	// Add condition for statusid (you may choose to remove or modify this based on your requirements)
+	conditions = append(conditions, "a.statusid <> 1")
 
-// 	// Combine conditions with "AND"
-// 	whereClause := strings.Join(conditions, " AND ")
+	// Combine conditions with "AND"
+	whereClause := strings.Join(conditions, " AND ")
 
-// 	// Generate a unique cache key based on query parameters
-// 	cacheKey := fmt.Sprintf("cases_page_%d_limit_%d_conditions_%s", pageNum, limitNum, whereClause)
+	// Generate a unique cache key based on query parameters
+	cacheKey := fmt.Sprintf("cases_page_%d_limit_%d_conditions_%s", pageNum, limitNum, whereClause)
 
-// 	// Check if the data is already in the cache
-// 	if cachedData, found := caseCache.Get(cacheKey); found {
-// 		// Return cached data
-// 		c.JSON(http.StatusOK, cachedData)
-// 		return
-// 	}
+	// Check if the data is already in the cache
+	if cachedData, found := caseCache.Get(cacheKey); found {
+		// Return cached data
+		c.JSON(http.StatusOK, cachedData)
+		return
+	}
 
-// 	// Build SQL query for counting total records
-// 	sqlCount := fmt.Sprintf(`
-// 		SELECT COUNT(*)
-// 		FROM [Case] a
-// 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
-// 		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
-// 		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
-// 		INNER JOIN status e ON a.statusid = e.statusid
-// 		INNER JOIN contact f ON a.contactid = f.contactid
-// 		INNER JOIN relation g ON a.relationid = g.relationid
-// 		WHERE %s
-// 	`, whereClause)
+	// Build SQL query for counting total records
+	sqlCount := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM [Case_NewCustomer] a
+		INNER JOIN tbltype b ON a.TypeID = b.TypeID
+		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
+		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
+		INNER JOIN status e ON a.statusid = e.statusid
+		INNER JOIN contact f ON a.contactid = f.contactid
+		INNER JOIN relation g ON a.relationid = g.relationid
+		WHERE %s
+	`, whereClause)
 
-// 	var totalCount int64
-// 	if err := config.DB.Raw(sqlCount).Scan(&totalCount).Error; err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count total records"})
-// 		return
-// 	}
+	var totalCount int64
+	if err := config.DB.Raw(sqlCount).Scan(&totalCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count total records"})
+		return
+	}
 
-// 	// Build SQL query for fetching paginated data
-// 	sqlQuery := fmt.Sprintf(`
-// 		SELECT
-// 			ROW_NUMBER() OVER (ORDER BY RIGHT(a.ticketno, 3) DESC) AS RowNumber,
-// 			a.flagcompany, a.ticketno, a.agreementno, a.applicationid, a.customerid,
-// 			a.typeid, b.description AS typedescription, a.subtypeid, c.SubDescription AS typesubdescription,
-// 			a.priorityid, d.Description AS prioritydescription, a.statusid, e.statusname,
-// 			e.description AS statusdescription, a.customername, a.branchid, a.description, a.phoneno,
-// 			a.email, a.usrupd, a.dtmupd, a.date_cr, f.contactid, f.Description AS contactdescription,
-// 			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.email_, a.foragingdays
-// 		FROM [Case] a
-// 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
-// 		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
-// 		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
-// 		INNER JOIN status e ON a.statusid = e.statusid
-// 		INNER JOIN contact f ON a.contactid = f.contactid
-// 		INNER JOIN relation g ON a.relationid = g.relationid
-// 		WHERE %s
-// 		ORDER BY RIGHT(a.ticketno, 3) DESC
-// 		OFFSET %d ROWS FETCH NEXT %d ROWS ONLY
-// 	`, whereClause, offset, limitNum)
+	// Build SQL query for fetching paginated data
+	sqlQuery := fmt.Sprintf(`
+		SELECT 
+			ROW_NUMBER() OVER (ORDER BY RIGHT(a.ticketno, 3) DESC) AS RowNumber,
+			a.flagcompany, a.ticketno, a.agreementno, a.applicationid, a.customerid,
+			a.typeid, b.description AS typedescription, a.subtypeid, c.SubDescription AS typesubdescription,
+			a.priorityid, d.Description AS prioritydescription, a.statusid, e.statusname,
+			e.description AS statusdescription, a.customername, a.branchid, a.description, a.phoneno,
+			a.email, a.usrupd, a.dtmupd, a.date_cr, f.contactid, f.Description AS contactdescription,
+			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.foragingdays
+		FROM [Case_NewCustomer] a
+		INNER JOIN tbltype b ON a.TypeID = b.TypeID
+		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
+		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
+		INNER JOIN status e ON a.statusid = e.statusid
+		INNER JOIN contact f ON a.contactid = f.contactid
+		INNER JOIN relation g ON a.relationid = g.relationid
+		WHERE %s
+		ORDER BY RIGHT(a.ticketno, 3) DESC
+		OFFSET %d ROWS FETCH NEXT %d ROWS ONLY
+	`, whereClause, offset, limitNum)
 
-// 	var cases []map[string]interface{}
-// 	if err := config.DB.Raw(sqlQuery).Scan(&cases).Error; err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch case data"})
-// 		return
-// 	}
+	var cases []map[string]interface{}
+	if err := config.DB.Raw(sqlQuery).Scan(&cases).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch case data"})
+		return
+	}
 
-// 	// Prepare the response
-// 	response := gin.H{
-// 		"total": totalCount,
-// 		"cases": cases,
-// 	}
+	// Prepare the response
+	response := gin.H{
+		"total": totalCount,
+		"cases": cases,
+	}
 
-// 	// Store the response in cache
-// 	// caseCache.Set(cacheKey, response, cache.DefaultExpiration)
+	// Store the response in cache
+	// caseCache.Set(cacheKey, response, cache.DefaultExpiration)
 
-// 	// Return the results in JSON format
-// 	c.JSON(http.StatusOK, response)
-// }
-
-// func GetCaseNewCust(c *gin.Context) {
-// 	// Skip session logic - No need to retrieve user_name from session
-
-// 	// Get page number and limit from query parameters
-// 	page := c.DefaultQuery("page", "1")
-// 	limit := c.DefaultQuery("limit", "30")
-
-// 	// Convert page and limit to integers
-// 	pageNum, limitNum := 1, 30
-// 	pageNum, _ = strconv.Atoi(page)
-// 	limitNum, _ = strconv.Atoi(limit)
-
-// 	// Calculate offset for pagination
-// 	offset := (pageNum - 1) * limitNum
-
-// 	// Build dynamic WHERE conditions for search
-// 	var conditions []string
-
-// 	// Define a map of query parameters and their corresponding database fields
-// 	fields := map[string]string{
-// 		"ticketno":      "a.ticketno",
-// 		"agreementno":   "a.agreementno",
-// 		"applicationid": "a.applicationid",
-// 		"customername":  "a.customername",
-// 		"priority":      "d.Description",
-// 		"status":        "e.statusname",
-// 		"usrupd":        "a.usrupd",
-// 	}
-
-// 	// Iterate over the map and add conditions dynamically
-// 	for param, field := range fields {
-// 		if value := c.Query(param); value != "" {
-// 			if param == "usrupd" { // Handle exact match for usrupd
-// 				conditions = append(conditions, fmt.Sprintf("%s = '%s'", field, value))
-// 			} else { // Handle LIKE conditions for other fields
-// 				conditions = append(conditions, fmt.Sprintf("%s LIKE '%%%s%%'", field, value))
-// 			}
-// 		}
-// 	}
-
-// 	// Add condition for statusid (you may choose to remove or modify this based on your requirements)
-// 	conditions = append(conditions, "a.statusid <> 1")
-
-// 	// Combine conditions with "AND"
-// 	whereClause := strings.Join(conditions, " AND ")
-
-// 	// Generate a unique cache key based on query parameters
-// 	cacheKey := fmt.Sprintf("cases_page_%d_limit_%d_conditions_%s", pageNum, limitNum, whereClause)
-
-// 	// Check if the data is already in the cache
-// 	if cachedData, found := caseCache.Get(cacheKey); found {
-// 		// Return cached data
-// 		c.JSON(http.StatusOK, cachedData)
-// 		return
-// 	}
-
-// 	// Build SQL query for counting total records
-// 	sqlCount := fmt.Sprintf(`
-// 		SELECT COUNT(*)
-// 		FROM [Case_NewCustomer] a
-// 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
-// 		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
-// 		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
-// 		INNER JOIN status e ON a.statusid = e.statusid
-// 		INNER JOIN contact f ON a.contactid = f.contactid
-// 		INNER JOIN relation g ON a.relationid = g.relationid
-// 		WHERE %s
-// 	`, whereClause)
-
-// 	var totalCount int64
-// 	if err := config.DB.Raw(sqlCount).Scan(&totalCount).Error; err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count total records"})
-// 		return
-// 	}
-
-// 	// Build SQL query for fetching paginated data
-// 	sqlQuery := fmt.Sprintf(`
-// 		SELECT
-// 			ROW_NUMBER() OVER (ORDER BY RIGHT(a.ticketno, 3) DESC) AS RowNumber,
-// 			a.flagcompany, a.ticketno, a.agreementno, a.applicationid, a.customerid,
-// 			a.typeid, b.description AS typedescription, a.subtypeid, c.SubDescription AS typesubdescription,
-// 			a.priorityid, d.Description AS prioritydescription, a.statusid, e.statusname,
-// 			e.description AS statusdescription, a.customername, a.branchid, a.description, a.phoneno,
-// 			a.email, a.usrupd, a.dtmupd, a.date_cr, f.contactid, f.Description AS contactdescription,
-// 			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.email_, a.foragingdays
-// 		FROM [Case_NewCustomer] a
-// 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
-// 		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
-// 		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
-// 		INNER JOIN status e ON a.statusid = e.statusid
-// 		INNER JOIN contact f ON a.contactid = f.contactid
-// 		INNER JOIN relation g ON a.relationid = g.relationid
-// 		WHERE %s
-// 		ORDER BY RIGHT(a.ticketno, 3) DESC
-// 		OFFSET %d ROWS FETCH NEXT %d ROWS ONLY
-// 	`, whereClause, offset, limitNum)
-
-// 	var cases []map[string]interface{}
-// 	if err := config.DB.Raw(sqlQuery).Scan(&cases).Error; err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch case data"})
-// 		return
-// 	}
-
-// 	// Prepare the response
-// 	response := gin.H{
-// 		"total": totalCount,
-// 		"cases": cases,
-// 	}
-
-// 	// Store the response in cache
-// 	// caseCache.Set(cacheKey, response, cache.DefaultExpiration)
-
-// 	// Return the results in JSON format
-// 	c.JSON(http.StatusOK, response)
-// }
+	// Return the results in JSON format
+	c.JSON(http.StatusOK, response)
+}
 
 func SaveCase(c *gin.Context) {
 	var request models.CaseRequest
