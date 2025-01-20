@@ -53,7 +53,7 @@ func main() {
 	// CRUD endpoints
 	r.GET("/getCase", controllers.GetCase)
 	r.POST("/getCase", controllers.GetCase)
-	r.POST("/getSaveCase", controllers.SaveCase)
+	r.POST("/saveCase", controllers.SaveCase)
 	r.GET("/getRelation", controllers.GetRelation)
 	r.GET("/getStatus", controllers.GetTblStatus)
 	r.GET("/gettblType", controllers.GetTblType)
