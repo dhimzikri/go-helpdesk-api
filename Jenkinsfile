@@ -2,14 +2,10 @@ pipeline {
     agent any
 
     environment {
-        GO_VERSION = 'latest' // Set to the latest Go version
         DOCKER_IMAGE = 'golang:latest' // Use the latest Go Docker image
         DOCKER_HOST = 'tcp://docker:2376' // Docker host, adjust if necessary
         DOCKER_COMPOSE = '/usr/libexec/docker/cli-plugins/docker-compose' // Docker Compose path
-    }
-
-    tools {
-        go 'Go 1.19' // Set Go version installed in Jenkins
+        IMAGE_NAME = 'myapp' // Name of the Docker image
     }
 
     stages {
@@ -20,29 +16,11 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
-            steps {
-                // Install dependencies (e.g., using Go modules)
-                sh '''
-                    go mod tidy
-                '''
-            }
-        }
-
-        stage('Build Application') {
-            steps {
-                // Build the Go application
-                sh '''
-                    go build -o myapp .
-                '''
-            }
-        }
-
         stage('Docker Build') {
             steps {
-                // Build the Docker image for the Go app
+                // Build the Docker image from the Dockerfile in the repository
                 script {
-                    docker.build("myapp:${BUILD_NUMBER}")
+                    docker.build("${IMAGE_NAME}:${BUILD_NUMBER}")
                 }
             }
         }
@@ -53,19 +31,9 @@ pipeline {
                     // Login to Docker Hub and push the image
                     sh '''
                         echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
-                        docker push myapp:${BUILD_NUMBER}
+                        docker push ${IMAGE_NAME}:${BUILD_NUMBER}
                     '''
                 }
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                // Deploy the application using Docker Compose
-                sh '''
-                    ${DOCKER_COMPOSE} down || true
-                    ${DOCKER_COMPOSE} up -d
-                '''
             }
         }
     }
