@@ -250,7 +250,7 @@ func CloseCaseNewCust(c *gin.Context) {
             SET NOCOUNT ON;
             DECLARE @trancodeid VARCHAR(20);
             
-            EXEC sp_insertcase ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @trancodeid OUTPUT;
+            EXEC sp_insertcasenewcustomer ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @trancodeid OUTPUT;
             
             -- Log the operation
             INSERT INTO tbllog ([tgl], [table_name], [menu], [script])
@@ -331,6 +331,7 @@ func CloseCaseNewCust(c *gin.Context) {
 		"trancodeid": trancodeid,
 	})
 }
+
 func sendNewCaseEmail(db *gorm.DB, trancodeid string, request models.CaseRequest) error {
 	var sendEmailFlag string
 	switch request.StatusID {
