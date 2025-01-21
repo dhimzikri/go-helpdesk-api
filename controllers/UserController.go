@@ -31,7 +31,7 @@ func Login(c *gin.Context) {
 
 	// Save user_name in session
 	session := sessions.Default(c)
-	session.Set("user_name", user.Username)
+	session.Set("username", user.Username)
 	session.Save()
 
 	token, err := utils.CreateToken(&user)
@@ -106,6 +106,12 @@ func Register(c *gin.Context) {
 
 // Logout User
 func Logout(c *gin.Context) {
-	// Example logic for logout
-	utils.RespondJSON(c, http.StatusOK, true, "Logged out successfully", nil)
+	session := sessions.Default(c)
+	session.Clear() // Clear all session data
+	if err := session.Save(); err != nil {
+		utils.Response(c, http.StatusInternalServerError, "Failed to clear session", nil)
+		return
+	}
+
+	utils.Response(c, http.StatusOK, "Successfully Logged Out", nil)
 }
