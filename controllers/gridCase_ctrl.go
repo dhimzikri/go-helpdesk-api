@@ -370,7 +370,7 @@ func SaveNewCase(c *gin.Context) {
         
         -- Log the operation
         INSERT INTO tbllog ([tgl], [table_name], [menu], [script])
-        SELECT GETDATE(), '[case]', 'gridcase', 'Executed insert case with status: ' + ?;
+        SELECT GETDATE(), '[Case_NewCustomer]', 'gridcase', 'Executed insert case with status: ' + ?;
         
         SELECT @trancodeid AS trancodeid;
     END TRY
