@@ -317,8 +317,18 @@ func GetSubType(c *gin.Context) {
 		return
 	}
 
+	// Convert all keys in the results to lowercase
+	lowercaseResults := make([]map[string]interface{}, len(results))
+	for i, result := range results {
+		lowercaseMap := make(map[string]interface{})
+		for key, value := range result {
+			lowercaseMap[strings.ToLower(key)] = value
+		}
+		lowercaseResults[i] = lowercaseMap
+	}
+
 	// Check if any data was retrieved
-	if len(results) == 0 {
+	if len(lowercaseResults) == 0 {
 		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
 		return
 	}
@@ -326,8 +336,8 @@ func GetSubType(c *gin.Context) {
 	// Return the results as JSON
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"total":   len(results),
-		"data":    results,
+		"total":   len(lowercaseResults),
+		"data":    lowercaseResults,
 	})
 }
 
