@@ -59,6 +59,7 @@ func main() {
 	// New Cust
 	r.GET("/getNewCase", controllers.GetCaseNewCust)
 	r.POST("/SaveNewCase", controllers.SaveNewCase)
+	r.POST("/closeCase", controllers.CloseCaseNewCust)
 
 	// Props Data
 	r.GET("/getRelation", controllers.GetRelation)
