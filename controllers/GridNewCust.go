@@ -4,22 +4,15 @@ import (
 	"fmt"
 	"golang-sqlserver-app/config"
 	"golang-sqlserver-app/models"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/patrickmn/go-cache"
-	"gopkg.in/gomail.v2"
 	"gorm.io/gorm"
 )
 
-// GetCases retrieves cases with pagination, search, and total count
-var caseCache = cache.New(5*time.Minute, 10*time.Minute)
-
-func GetCase(c *gin.Context) {
+func GetCaseNewCust(c *gin.Context) {
 	// Skip session logic - No need to retrieve user_name from session
 
 	// Get page number and limit from query parameters
@@ -78,7 +71,7 @@ func GetCase(c *gin.Context) {
 	// Build SQL query for counting total records
 	sqlCount := fmt.Sprintf(`
 		SELECT COUNT(*)
-		FROM [Case] a
+		FROM [Case_NewCustomer] a
 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
 		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
 		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
@@ -103,8 +96,8 @@ func GetCase(c *gin.Context) {
 			a.priorityid, d.Description AS prioritydescription, a.statusid, e.statusname,
 			e.description AS statusdescription, a.customername, a.branchid, a.description, a.phoneno,
 			a.email, a.usrupd, a.dtmupd, a.date_cr, f.contactid, f.Description AS contactdescription,
-			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.email_, a.foragingdays
-		FROM [Case] a
+			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.foragingdays
+		FROM [Case_NewCustomer] a
 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
 		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
 		INNER JOIN Priority d ON a.PriorityID = d.PriorityID
@@ -135,7 +128,7 @@ func GetCase(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-func SaveCase(c *gin.Context) {
+func SaveNewCase(c *gin.Context) {
 	var request models.CaseRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": "Invalid request format", "error": err.Error()})
@@ -150,11 +143,11 @@ func SaveCase(c *gin.Context) {
         SET NOCOUNT ON;
         DECLARE @trancodeid VARCHAR(20);
         
-        EXEC sp_insertcase ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @trancodeid OUTPUT;
+        EXEC sp_insertcasenewcustomer ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @trancodeid OUTPUT;
         
         -- Log the operation
         INSERT INTO tbllog ([tgl], [table_name], [menu], [script])
-        SELECT GETDATE(), '[case]', 'gridcase', 'Executed insert case with status: ' + ?;
+        SELECT GETDATE(), '[Case_NewCustomer]', 'gridcase', 'Executed insert case with status: ' + ?;
         
         SELECT @trancodeid AS trancodeid;
     END TRY
@@ -215,7 +208,7 @@ func SaveCase(c *gin.Context) {
 
 	if request.IsSendEmail == "true" {
 		go func() {
-			emailErr := sendCaseEmail(config.DB, trancodeid, request)
+			emailErr := sendNewCaseEmail(config.DB, trancodeid, request)
 			if emailErr != nil {
 				c.JSON(http.StatusOK, gin.H{
 					"success":    true,
@@ -235,7 +228,7 @@ func SaveCase(c *gin.Context) {
 	})
 }
 
-func CloseCase(c *gin.Context) {
+func CloseCaseNewCust(c *gin.Context) {
 	var request models.CaseRequest
 
 	// Handle potential binding errors
@@ -257,7 +250,7 @@ func CloseCase(c *gin.Context) {
             SET NOCOUNT ON;
             DECLARE @trancodeid VARCHAR(20);
             
-            EXEC sp_insertcase ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @trancodeid OUTPUT;
+            EXEC sp_insertcasenewcustomer ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @trancodeid OUTPUT;
             
             -- Log the operation
             INSERT INTO tbllog ([tgl], [table_name], [menu], [script])
@@ -339,7 +332,7 @@ func CloseCase(c *gin.Context) {
 	})
 }
 
-func sendCaseEmail(db *gorm.DB, trancodeid string, request models.CaseRequest) error {
+func sendNewCaseEmail(db *gorm.DB, trancodeid string, request models.CaseRequest) error {
 	var sendEmailFlag string
 	switch request.StatusID {
 	case 1, 2, 3, 4:
@@ -372,7 +365,7 @@ func sendCaseEmail(db *gorm.DB, trancodeid string, request models.CaseRequest) e
 	rows, err := db.Raw(emailSQL,
 		trancodeid,     // @trancodeid
 		ticketno,       // @ticketno
-		request.Email_, // @email
+		request.Email,  // @email
 		data,           // @data
 		sendEmailFlag,  // @flag
 		request.UserID, // @userid
@@ -394,29 +387,5 @@ func sendCaseEmail(db *gorm.DB, trancodeid string, request models.CaseRequest) e
 		}
 	}
 
-	return nil
-}
-
-func SendEmail(subject, bodyEmail, recipient, trancodeid string) error {
-	mail := gomail.NewMessage()
-
-	mail.SetHeader("From", "passadmin@cnaf.co.id", "INFO CS CIMBNIAGA FINANCE")
-	mail.SetHeader("To", recipient)
-	mail.SetHeader("Subject", subject)
-	mail.SetBody("text/html", bodyEmail)
-
-	dialer := gomail.NewDialer(
-		"smtp-mail.outlook.com", // SMTP host
-		587,                     // Port
-		"passadmin@cnaf.co.id",  // Email address
-		"123456.Aa",             // Email password
-	)
-
-	if err := dialer.DialAndSend(mail); err != nil {
-		log.Printf("Failed to send email for TrancodeID %s: %v", trancodeid, err)
-		return err
-	}
-
-	log.Printf("Email sent successfully for TrancodeID %s", trancodeid)
 	return nil
 }
