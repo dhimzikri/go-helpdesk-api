@@ -442,3 +442,38 @@ func GetBranchID(c *gin.Context) {
 	// Send the response as JSON
 	c.JSON(http.StatusOK, result)
 }
+
+func CreateTblType(c *gin.Context) {
+	// Parse the request parameters
+	tblTypeID := c.PostForm("tblTypeid")
+	name := c.PostForm("name")
+	void := c.PostForm("void")
+
+	// Convert the "void" value to a boolean-compatible integer
+	voidInt := 0
+	if void == "on" {
+		voidInt = 1
+	}
+
+	// Simulate fetching the current user from session or token
+	userID := "current_user" // Replace with actual logic to fetch user from session or context
+
+	// Build the SQL query to execute the stored procedure
+	sql := fmt.Sprintf("EXEC sp_insert_tblType '%s', '%s', '%d', '%s'", tblTypeID, name, voidInt, userID)
+
+	// Execute the query
+	if err := config.DB.Exec(sql).Error; err != nil {
+		// If there's an error, return it in the response
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"msg":     err.Error(),
+		})
+		return
+	}
+
+	// If the query was successful, return success
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"msg":     "Data inserted successfully",
+	})
+}
