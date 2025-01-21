@@ -14,37 +14,56 @@ import (
 func Login(c *gin.Context) {
 	var login models.Login
 	if err := c.ShouldBindJSON(&login); err != nil {
-		utils.Response(c, http.StatusBadRequest, err.Error(), nil)
+		utils.Response(c, http.StatusBadRequest, "Invalid input", gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return
 	}
 
 	var user models.User
 	if err := config.DB2.Where("user_name = ?", login.Username).First(&user).Error; err != nil {
-		utils.Response(c, http.StatusNotFound, "User not found", nil)
+		utils.Response(c, http.StatusNotFound, "User not found", gin.H{
+			"success": false,
+		})
 		return
 	}
 
 	if err := utils.ComparePasswords(user.Password, login.Password); err != nil {
-		utils.Response(c, http.StatusUnauthorized, "Invalid credentials", nil)
+		utils.Response(c, http.StatusUnauthorized, "Invalid credentials", gin.H{
+			"success": false,
+		})
 		return
 	}
 
 	// Save user_name in session
 	session := sessions.Default(c)
-	session.Set("user_name", user.Username)
-	session.Save()
-
-	token, err := utils.CreateToken(&user)
-	if err != nil {
-		utils.Response(c, http.StatusInternalServerError, err.Error(), nil)
+	session.Set("username", user.Username)
+	if err := session.Save(); err != nil {
+		utils.Response(c, http.StatusInternalServerError, "Failed to save session", gin.H{
+			"success": false,
+		})
 		return
 	}
 
-	responseData := map[string]interface{}{
+	// Generate token
+	token, err := utils.CreateToken(&user)
+	if err != nil {
+		utils.Response(c, http.StatusInternalServerError, "Failed to generate token", gin.H{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// Prepare response data
+	responseData := gin.H{
+		"success":   true,
 		"data_user": user,
 		"token":     token,
 	}
 
+	// Return success response
 	utils.Response(c, http.StatusOK, "Successfully Logged In", responseData)
 }
 
@@ -106,6 +125,12 @@ func Register(c *gin.Context) {
 
 // Logout User
 func Logout(c *gin.Context) {
-	// Example logic for logout
-	utils.RespondJSON(c, http.StatusOK, true, "Logged out successfully", nil)
+	session := sessions.Default(c)
+	session.Clear() // Clear all session data
+	if err := session.Save(); err != nil {
+		utils.Response(c, http.StatusInternalServerError, "Failed to clear session", nil)
+		return
+	}
+
+	utils.Response(c, http.StatusOK, "Successfully Logged Out", nil)
 }
