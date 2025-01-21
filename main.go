@@ -71,6 +71,7 @@ func main() {
 	r.GET("/gettblPriority", controllers.GetTblPriority)
 	r.GET("/getHoliday", controllers.GetHolidays)
 	r.GET("/getSettingEmail", controllers.GetEmailSetting)
+	r.GET("/getBranch_id", controllers.GetBranchID)
 	// r.POST("/sendEmail", controllers.HandleSendEmail)
 
 	// Start the server using HTTP

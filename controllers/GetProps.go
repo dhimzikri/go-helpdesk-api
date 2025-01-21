@@ -22,19 +22,30 @@ func GetTblType(c *gin.Context) {
 		return
 	}
 
+	// Convert all keys in the results to lowercase
+	lowercaseResults := make([]map[string]interface{}, len(results))
+	for i, result := range results {
+		lowercaseMap := make(map[string]interface{})
+		for key, value := range result {
+			lowercaseMap[strings.ToLower(key)] = value
+		}
+		lowercaseResults[i] = lowercaseMap
+	}
+
 	// Check if any data was retrieved
-	if len(results) == 0 {
+	if len(lowercaseResults) == 0 {
 		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
 		return
 	}
 
-	// Return the results as JSON
+	// Return the lowercase results as JSON
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"total":   len(results),
-		"data":    results,
+		"total":   len(lowercaseResults),
+		"data":    lowercaseResults,
 	})
 }
+
 func GetTblPriority(c *gin.Context) {
 	// Define a slice of maps to hold the query results
 	var results []map[string]interface{}
@@ -320,30 +331,6 @@ func GetSubType(c *gin.Context) {
 	})
 }
 
-// func GetSubType(c *gin.Context) {
-// 	// Define a slice of maps to hold the query results
-// 	var results []map[string]interface{}
-
-// 	// Execute the query using GORM's raw SQL method
-// 	if err := config.DB.Table("tblSubType").Find(&results).Error; err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
-// 		return
-// 	}
-
-// 	// Check if any data was retrieved
-// 	if len(results) == 0 {
-// 		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
-// 		return
-// 	}
-
-// 	// Return the results as JSON
-// 	c.JSON(http.StatusOK, gin.H{
-// 		"success": true,
-// 		"total":   len(results),
-// 		"data":    results,
-// 	})
-// }
-
 func GetHolidays(c *gin.Context) {
 	// Define a slice of maps to hold the query results
 	var results []map[string]interface{}
@@ -390,4 +377,58 @@ func GetEmailSetting(c *gin.Context) {
 		"total":   len(results),
 		"data":    results,
 	})
+}
+
+type CostCenter struct {
+	BranchID       int    `json:"branchid"`
+	BranchFullName string `json:"branchfullname"`
+}
+
+// Define the response structure
+type Response struct {
+	Total   int          `json:"total"`
+	Success bool         `json:"success"`
+	Data    []CostCenter `json:"data"`
+}
+
+// readgetBranchID handles the request to get branch data based on query and column
+func GetBranchID(c *gin.Context) {
+	query := c.DefaultQuery("query", "")
+	col := c.DefaultQuery("col", "")
+
+	// Build the dynamic WHERE clause based on query parameters
+	conditions := "0=0" // Default condition to always return results
+
+	if query != "" && col != "" {
+		conditions = col + " LIKE ?"
+	}
+
+	var costCenters []CostCenter
+	// Execute the query with dynamic conditions
+	err := config.DB2.Table("Portal_EXT_UAT.dbo.cost_centers").
+		Select("id_cost_center as branchid, name as branchfullname").
+		Where(conditions, "%"+query+"%").
+		Find(&costCenters).Error
+
+	// Initialize the response struct
+	result := Response{
+		Success: true,
+	}
+
+	if err != nil {
+		result.Success = false
+		c.JSON(http.StatusInternalServerError, result)
+		return
+	}
+
+	// If records found, return them
+	if len(costCenters) > 0 {
+		result.Total = len(costCenters)
+		result.Data = costCenters
+	} else {
+		result.Success = false
+	}
+
+	// Send the response as JSON
+	c.JSON(http.StatusOK, result)
 }
