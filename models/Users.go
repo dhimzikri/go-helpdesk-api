@@ -24,8 +24,8 @@ type UserLogin struct {
 }
 
 type Login struct {
-	Username string `json:"user_name" example:"1879"`
-	Password string `json:"user_password" example:"pass,123"`
+	Username string `json:"username" example:"1879"`
+	Password string `json:"pwd" example:"pass,123"`
 }
 
 type MyProfile struct {
