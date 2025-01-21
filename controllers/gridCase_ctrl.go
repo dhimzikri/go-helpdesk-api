@@ -366,7 +366,7 @@ func SaveNewCase(c *gin.Context) {
         SET NOCOUNT ON;
         DECLARE @trancodeid VARCHAR(20);
         
-        EXEC sp_insertcase ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @trancodeid OUTPUT;
+        EXEC sp_insertcasenewcustomer ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @trancodeid OUTPUT;
         
         -- Log the operation
         INSERT INTO tbllog ([tgl], [table_name], [menu], [script])

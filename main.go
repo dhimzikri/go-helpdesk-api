@@ -51,11 +51,16 @@ func main() {
 	r.GET("/logout", controllers.Logout)
 
 	// CRUD endpoints
+	// Existing Cust
 	r.GET("/getCase", controllers.GetCase)
-	r.GET("/getNewCase", controllers.GetCaseNewCust)
 	r.POST("/saveCase", controllers.SaveCase)
-	r.POST("/SaveNewCase", controllers.SaveNewCase)
 	r.POST("/closeCase", controllers.CloseCase)
+
+	// New Cust
+	r.GET("/getNewCase", controllers.GetCaseNewCust)
+	r.POST("/SaveNewCase", controllers.SaveNewCase)
+
+	// Props Data
 	r.GET("/getRelation", controllers.GetRelation)
 	r.GET("/getStatus", controllers.GetTblStatus)
 	r.GET("/gettblType", controllers.GetTblType)
