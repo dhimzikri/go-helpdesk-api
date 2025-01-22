@@ -448,7 +448,9 @@ func GetBranchID(c *gin.Context) {
 	var results []map[string]interface{}
 
 	// Execute the query using GORM's raw SQL method
-	if err := config.DB2.Table("cost_centers").Find(&results).Error; err != nil {
+	if err := config.DB2.Table("cost_centers").
+		Select("id_cost_center as branchid, name as branchfullname").
+		Find(&results).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
 		return
 	}
