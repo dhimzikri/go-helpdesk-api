@@ -73,6 +73,7 @@ func main() {
 	r.GET("/getSettingEmail", controllers.GetEmailSetting)
 	r.GET("/getBranch_id", controllers.GetBranchID)
 	r.POST("/saveType", controllers.CreateTblType)
+	r.POST("/createSubType", controllers.CreateTblSubType)
 
 	// Start the server using HTTP
 	if err := r.Run("0.0.0.0:8686"); err != nil {
