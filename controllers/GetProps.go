@@ -295,7 +295,7 @@ func GetSubType(c *gin.Context) {
 	src := config.DB.Table("tblSubType").Select("tblSubType.*, cost_centers.name AS cost_center_name")
 
 	// Build raw join query manually using db2 for cost_centers
-	joinQuery := "(SELECT id, name FROM portal_ext_uat.dbo.cost_centers) AS cost_centers"
+	joinQuery := "(SELECT id, name FROM portal_ext.dbo.cost_centers) AS cost_centers"
 	src = src.Joins("LEFT JOIN " + joinQuery + " ON tblSubType.cost_center = cost_centers.id")
 
 	// Add filters
