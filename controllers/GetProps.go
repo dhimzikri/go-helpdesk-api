@@ -287,57 +287,47 @@ func GetContact(c *gin.Context) {
 }
 
 func GetSubType(c *gin.Context) {
-	// Define a slice of maps to hold the query results
-	var results []map[string]interface{}
-
-	// Get query parameters
+	typeID, _ := strconv.Atoi(c.Query("typeid"))
 	query := c.Query("query")
 	col := c.Query("col")
-	typeIDStr := c.Query("typeid")
 
-	// Convert typeID to integer
-	typeID, err := strconv.Atoi(typeIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid typeid"})
-		return
-	}
+	// Base query
+	src := config.DB.Table("tblSubType").
+		Select("tblSubType.*, portal_ext.cost_centers.name AS cost_center_name").
+		Joins("LEFT JOIN portal_ext.cost_centers ON tblSubType.cost_center = cost_centers.id").
+		Where("typeid = ? AND isactive = ?", typeID, 1)
 
-	// Build the base query
-	dbQuery := config.DB.Table("tblSubType").Where("typeid = ? AND isactive = 1", typeID)
-
-	// Add search condition if query and col are provided
+	// Add search filter if query and col are provided
 	if query != "" && col != "" {
-		searchColumn := col + " LIKE ?"
-		dbQuery = dbQuery.Where(searchColumn, "%"+query+"%")
+		src = src.Where(col+" LIKE ?", "%"+query+"%")
 	}
 
-	// Execute the query and fetch results
-	if err := dbQuery.Find(&results).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+	// Fetch data into a generic map
+	var resultData []map[string]interface{}
+	result := src.Find(&resultData)
+
+	// Handle errors or empty results
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   result.Error.Error(),
+		})
 		return
 	}
 
-	// Convert all keys in the results to lowercase
-	lowercaseResults := make([]map[string]interface{}, len(results))
-	for i, result := range results {
-		lowercaseMap := make(map[string]interface{})
-		for key, value := range result {
-			lowercaseMap[strings.ToLower(key)] = value
-		}
-		lowercaseResults[i] = lowercaseMap
-	}
-
-	// Check if any data was retrieved
-	if len(lowercaseResults) == 0 {
-		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
+	if len(resultData) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"total":   0,
+		})
 		return
 	}
 
-	// Return the results as JSON
+	// Send successful response
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"total":   len(lowercaseResults),
-		"data":    lowercaseResults,
+		"total":   result.RowsAffected,
+		"data":    resultData,
 	})
 }
 
