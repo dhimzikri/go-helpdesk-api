@@ -291,18 +291,20 @@ func GetSubType(c *gin.Context) {
 	query := c.Query("query")
 	col := c.Query("col")
 
-	// Base query
-	src := config.DB.Table("tblSubType").
-		Select("tblSubType.*, portal_ext.cost_centers.name AS cost_center_name").
-		Joins("LEFT JOIN portal_ext.cost_centers ON tblSubType.cost_center = cost_centers.id").
-		Where("typeid = ? AND isactive = ?", typeID, 1)
+	// Base query for tblSubType
+	src := config.DB.Table("tblSubType").Select("tblSubType.*, cost_centers.name AS cost_center_name")
 
-	// Add search filter if query and col are provided
+	// Build raw join query manually using db2 for cost_centers
+	joinQuery := "(SELECT id, name FROM portal_ext_uat.dbo.cost_centers) AS cost_centers"
+	src = src.Joins("LEFT JOIN " + joinQuery + " ON tblSubType.cost_center = cost_centers.id")
+
+	// Add filters
+	src = src.Where("typeid = ? AND isactive = ?", typeID, 1)
 	if query != "" && col != "" {
 		src = src.Where(col+" LIKE ?", "%"+query+"%")
 	}
 
-	// Fetch data into a generic map
+	// Fetch results into a map
 	var resultData []map[string]interface{}
 	result := src.Find(&resultData)
 
@@ -321,6 +323,14 @@ func GetSubType(c *gin.Context) {
 			"total":   0,
 		})
 		return
+	}
+	// Convert keys to lowercase
+	for i := range resultData {
+		lowercaseMap := make(map[string]interface{})
+		for key, value := range resultData[i] {
+			lowercaseMap[strings.ToLower(key)] = value
+		}
+		resultData[i] = lowercaseMap
 	}
 
 	// Send successful response
@@ -390,48 +400,6 @@ type Response struct {
 	Success bool         `json:"success"`
 	Data    []CostCenter `json:"data"`
 }
-
-// readgetBranchID handles the request to get branch data based on query and column
-// func GetBranchID(c *gin.Context) {
-// 	// query := c.DefaultQuery("query", "")
-// 	// col := c.DefaultQuery("col", "")
-
-// 	// Build the dynamic WHERE clause based on query parameters
-// 	// conditions := "0=0" // Default condition to always return results
-
-// 	// if query != "" && col != "" {
-// 	// 	conditions = col + " LIKE ?"
-// 	// }
-
-// 	var costCenters []CostCenter
-// 	// Execute the query with dynamic conditions
-// 	err := config.DB2.Table("Portal_EXT_UAT.dbo.cost_centers").
-// 		Select("id_cost_center as branchid, name as branchfullname").
-// 		// Where(conditions, "%"+query+"%").
-// 		Find(&costCenters).Error
-
-// 	// Initialize the response struct
-// 	result := Response{
-// 		Success: true,
-// 	}
-
-// 	if err != nil {
-// 		result.Success = false
-// 		c.JSON(http.StatusInternalServerError, result)
-// 		return
-// 	}
-
-// 	// If records found, return them
-// 	if len(costCenters) > 0 {
-// 		result.Total = len(costCenters)
-// 		result.Data = costCenters
-// 	} else {
-// 		result.Success = false
-// 	}
-
-// 	// Send the response as JSON
-// 	c.JSON(http.StatusOK, result)
-// }
 
 func GetBranchID(c *gin.Context) {
 	// Define a slice of maps to hold the query results
