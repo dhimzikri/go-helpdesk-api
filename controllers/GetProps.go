@@ -239,6 +239,48 @@ func GetEmailSetting(c *gin.Context) {
 	})
 }
 
+func AddSetEmail(c *gin.Context) {
+	// Parse the incoming request
+	name := c.PostForm("name")
+	typ := c.PostForm("type") // `type` is a reserved keyword in Go
+	value := c.PostForm("value")
+	flag := c.PostForm("flag")
+	isextend := 0
+
+	// Check if "isextend" exists in the request
+	if c.PostForm("isextend") != "" {
+		isextend = 1
+	}
+
+	// Database connection (replace with your own configuration)
+	// Prepare the SQL query
+	query := `
+	SET NOCOUNT ON;
+	INSERT INTO tblSettingEmail (name, type, value, flag, isextend)
+	VALUES (?, ?, ?, ?, ?);
+	SELECT SCOPE_IDENTITY() AS data;
+	`
+
+	// Execute the SQL query
+	var insertedID int
+	err := config.DB.Exec(query, name, typ, value, flag, isextend).Scan(&insertedID).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"msg":     err.Error(),
+		})
+		return
+	}
+
+	// Return the result
+	result := map[string]interface{}{
+		"success": true,
+		"msg":     "Data inserted successfully",
+		"data":    insertedID,
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 func AddRelation(c *gin.Context) {
 	// Parse the request parameters
 	relationid := c.PostForm("relationid")

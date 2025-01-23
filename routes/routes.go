@@ -40,8 +40,11 @@ func SetupRoutes(r *gin.Engine) {
 		// Props
 		props.GET("/gettblPriority", controllers.GetTblPriority)
 		props.GET("/getHoliday", controllers.GetHolidays)
-		props.GET("/getSettingEmail", controllers.GetEmailSetting)
 		props.GET("/getBranch_id", controllers.GetBranchID)
+
+		//  Set Email
+		props.GET("/getSettingEmail", controllers.GetEmailSetting)
+		props.POST("/addSetEmail", controllers.AddSetEmail)
 
 		// Props Data
 		props.GET("/getRelation", controllers.GetRelation)
