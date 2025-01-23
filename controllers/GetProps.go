@@ -170,10 +170,8 @@ func GetTblStatus(c *gin.Context) {
 	})
 }
 
-// Initialize the cache with a default expiration of 5 minutes and cleanup interval of 10 minutes
 var c = cache.New(5*time.Minute, 10*time.Minute)
 
-// ExecuteStoredProcedure executes the stored procedure with caching
 func ReadAgreement(flagCompany string, searchParams map[string]string) ([]map[string]interface{}, error) {
 	db := config.GetDB() // Get the database connection
 
@@ -229,7 +227,6 @@ func ReadAgreement(flagCompany string, searchParams map[string]string) ([]map[st
 	return results, nil
 }
 
-// GetInfoHandler handles the API request for executing the stored procedure with caching
 func AgreementNoHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get query parameters
@@ -257,7 +254,6 @@ func AgreementNoHandler() gin.HandlerFunc {
 	}
 }
 
-// escapeSingleQuotes escapes single quotes in strings
 func escapeSingleQuotes(input string) string {
 	return strings.ReplaceAll(input, "'", "''")
 }
@@ -428,18 +424,6 @@ func GetEmailSetting(c *gin.Context) {
 		"total":   len(results),
 		"data":    results,
 	})
-}
-
-type CostCenter struct {
-	BranchID       int    `json:"branchid"`
-	BranchFullName string `json:"branchfullname"`
-}
-
-// Define the response structure
-type Response struct {
-	Total   int          `json:"total"`
-	Success bool         `json:"success"`
-	Data    []CostCenter `json:"data"`
 }
 
 func GetBranchID(c *gin.Context) {
