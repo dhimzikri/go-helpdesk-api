@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"golang-sqlserver-app/config"
 	"net/http"
 	"strings"
@@ -235,5 +236,35 @@ func GetEmailSetting(c *gin.Context) {
 		"success": true,
 		"total":   len(results),
 		"data":    results,
+	})
+}
+
+func AddRelation(c *gin.Context) {
+	// Parse the request parameters
+	relationid := c.PostForm("relationid")
+	description := c.PostForm("description")
+	subdescription := c.PostForm("subdescription")
+	isactive := c.PostForm("isactive")
+
+	// Simulate fetching the current user from session or token
+	userID := "8023" // Replace with actual logic to fetch user from session or context
+
+	// Build the SQL query to execute the stored procedure
+	sql := fmt.Sprintf("exec sp_insert_tblSubType '%s','%s','%s','%s','%s'", relationid, description, subdescription, isactive, userID)
+
+	// Execute the query
+	if err := config.DB.Exec(sql).Error; err != nil {
+		// If there's an error, return it in the response
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"msg":     err.Error(),
+		})
+		return
+	}
+
+	// If the query was successful, return success
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"msg":     "Data inserted successfully",
 	})
 }
