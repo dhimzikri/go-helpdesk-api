@@ -1,15 +1,13 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"golang-sqlserver-app/config"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/patrickmn/go-cache"
 )
 
 func GetTblType(c *gin.Context) {
@@ -22,19 +20,30 @@ func GetTblType(c *gin.Context) {
 		return
 	}
 
+	// Convert all keys in the results to lowercase
+	lowercaseResults := make([]map[string]interface{}, len(results))
+	for i, result := range results {
+		lowercaseMap := make(map[string]interface{})
+		for key, value := range result {
+			lowercaseMap[strings.ToLower(key)] = value
+		}
+		lowercaseResults[i] = lowercaseMap
+	}
+
 	// Check if any data was retrieved
-	if len(results) == 0 {
+	if len(lowercaseResults) == 0 {
 		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
 		return
 	}
 
-	// Return the results as JSON
+	// Return the lowercase results as JSON
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"total":   len(results),
-		"data":    results,
+		"total":   len(lowercaseResults),
+		"data":    lowercaseResults,
 	})
 }
+
 func GetTblPriority(c *gin.Context) {
 	// Define a slice of maps to hold the query results
 	var results []map[string]interface{}
@@ -159,98 +168,6 @@ func GetTblStatus(c *gin.Context) {
 	})
 }
 
-// Initialize the cache with a default expiration of 5 minutes and cleanup interval of 10 minutes
-var c = cache.New(5*time.Minute, 10*time.Minute)
-
-// ExecuteStoredProcedure executes the stored procedure with caching
-func ReadAgreement(flagCompany string, searchParams map[string]string) ([]map[string]interface{}, error) {
-	db := config.GetDB() // Get the database connection
-
-	// Create a unique cache key based on flagCompany and searchParams
-	cacheKey := fmt.Sprintf("%s-%v", flagCompany, searchParams)
-
-	// Check if the result is already in the cache
-	if cachedResult, found := c.Get(cacheKey); found {
-		fmt.Println("Cache hit")
-		return cachedResult.([]map[string]interface{}), nil
-	}
-
-	// Build the where clause dynamically based on search parameters
-	whereClause := "0=0"
-	if agreementNo, ok := searchParams["agreementno"]; ok && agreementNo != "" {
-		whereClause += fmt.Sprintf(" and a.agreementno like '%%%s%%'", escapeSingleQuotes(agreementNo))
-	}
-	if customerName, ok := searchParams["customername"]; ok && customerName != "" {
-		whereClause += fmt.Sprintf(" and b.name like '%%%s%%'", escapeSingleQuotes(customerName))
-	}
-
-	// Correctly escape the query
-	query := fmt.Sprintf("EXEC sp_getInformation @flagcompany = '%s', @where = '%s'",
-		escapeSingleQuotes(flagCompany), escapeSingleQuotes(whereClause))
-
-	// Execute the query
-	rows, err := db.Raw(query).Rows()
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute query: %w", err)
-	}
-	defer rows.Close()
-
-	// Parse the results from the query
-	var results []map[string]interface{}
-	for rows.Next() {
-		columns, _ := rows.Columns()
-		values := make([]interface{}, len(columns))
-		valuePtrs := make([]interface{}, len(columns))
-		for i := range values {
-			valuePtrs[i] = &values[i]
-		}
-		rows.Scan(valuePtrs...)
-		row := make(map[string]interface{})
-		for i, col := range columns {
-			row[col] = values[i]
-		}
-		results = append(results, row)
-	}
-
-	// Store the result in the cache for future use
-	c.Set(cacheKey, results, cache.DefaultExpiration)
-
-	return results, nil
-}
-
-// GetInfoHandler handles the API request for executing the stored procedure with caching
-func AgreementNoHandler() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Get query parameters
-		flagCompany := c.Query("flagcompany")
-		searchParams := map[string]string{
-			"agreementno":   c.Query("agreementno"),
-			"applicationid": c.Query("applicationid"),
-			"customername":  c.Query("customername"),
-		}
-
-		// Call the stored procedure
-		results, err := ReadAgreement(flagCompany, searchParams)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		// Wrap results in a "data" field
-		response := gin.H{
-			"data": results,
-		}
-
-		// Return the results as JSON
-		c.JSON(http.StatusOK, response)
-	}
-}
-
-// escapeSingleQuotes escapes single quotes in strings
-func escapeSingleQuotes(input string) string {
-	return strings.ReplaceAll(input, "'", "''")
-}
-
 func GetContact(c *gin.Context) {
 	// Define a slice of maps to hold the query results
 	var results []map[string]interface{}
@@ -274,75 +191,6 @@ func GetContact(c *gin.Context) {
 		"data":    results,
 	})
 }
-
-func GetSubType(c *gin.Context) {
-	// Define a slice of maps to hold the query results
-	var results []map[string]interface{}
-
-	// Get query parameters
-	query := c.Query("query")
-	col := c.Query("col")
-	typeIDStr := c.Query("typeid")
-
-	// Convert typeID to integer
-	typeID, err := strconv.Atoi(typeIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "Invalid typeid"})
-		return
-	}
-
-	// Build the base query
-	dbQuery := config.DB.Table("tblSubType").Where("typeid = ? AND isactive = 1", typeID)
-
-	// Add search condition if query and col are provided
-	if query != "" && col != "" {
-		searchColumn := col + " LIKE ?"
-		dbQuery = dbQuery.Where(searchColumn, "%"+query+"%")
-	}
-
-	// Execute the query and fetch results
-	if err := dbQuery.Find(&results).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
-		return
-	}
-
-	// Check if any data was retrieved
-	if len(results) == 0 {
-		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
-		return
-	}
-
-	// Return the results as JSON
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"total":   len(results),
-		"data":    results,
-	})
-}
-
-// func GetSubType(c *gin.Context) {
-// 	// Define a slice of maps to hold the query results
-// 	var results []map[string]interface{}
-
-// 	// Execute the query using GORM's raw SQL method
-// 	if err := config.DB.Table("tblSubType").Find(&results).Error; err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
-// 		return
-// 	}
-
-// 	// Check if any data was retrieved
-// 	if len(results) == 0 {
-// 		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
-// 		return
-// 	}
-
-// 	// Return the results as JSON
-// 	c.JSON(http.StatusOK, gin.H{
-// 		"success": true,
-// 		"total":   len(results),
-// 		"data":    results,
-// 	})
-// }
 
 func GetHolidays(c *gin.Context) {
 	// Define a slice of maps to hold the query results
@@ -389,5 +237,87 @@ func GetEmailSetting(c *gin.Context) {
 		"success": true,
 		"total":   len(results),
 		"data":    results,
+	})
+}
+
+func AddSetEmail(c *gin.Context) {
+	// Read raw JSON from the request body
+	rawData, err := c.GetRawData()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"msg":     "Failed to read request body",
+		})
+		return
+	}
+
+	// Parse the raw JSON into a map
+	var requestBody map[string]string
+	if err := json.Unmarshal(rawData, &requestBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"msg":     "Invalid JSON format",
+		})
+		return
+	}
+
+	// Extract values from the map
+	id := requestBody["id"]
+	name := requestBody["name"]
+	typ := requestBody["type"]
+	value := requestBody["value"]
+	flag := requestBody["flag"]
+
+	// Convert id to NULL if it's empty
+	idValue := "NULL"
+	if id != "" {
+		idValue = id
+	}
+
+	// Build the SQL query
+	sql := fmt.Sprintf("exec sp_insertSetEmail %s, '%s', '%s', '%s', '%s'", idValue, name, typ, value, flag)
+
+	// Execute the query
+	if err := config.DB.Exec(sql).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"msg":     err.Error(),
+		})
+		return
+	}
+
+	// Return success
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"msg":     "Data inserted/updated successfully",
+	})
+}
+
+func AddRelation(c *gin.Context) {
+	// Parse the request parameters
+	relationid := c.PostForm("relationid")
+	description := c.PostForm("description")
+	isactive := c.PostForm("isactive")
+
+	// Simulate fetching the current user from session or token
+	userID := "8023" // Replace with actual logic to fetch user from session or context
+
+	// Build the SQL query to execute the stored procedure
+	sql := fmt.Sprintf("exec sp_insertrelation '%s','%s','%s','%s'", relationid, description, isactive, userID)
+
+	// Execute the query
+	if err := config.DB.Exec(sql).Error; err != nil {
+		// If there's an error, return it in the response
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"msg":     err.Error(),
+		})
+		return
+	}
+
+	// If the query was successful, return success
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"msg":     "Data inserted successfully",
 	})
 }
