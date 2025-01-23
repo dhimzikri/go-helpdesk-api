@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"golang-sqlserver-app/config"
 	"net/http"
@@ -240,22 +241,44 @@ func GetEmailSetting(c *gin.Context) {
 }
 
 func AddSetEmail(c *gin.Context) {
-	// Parse the request parameters
-	name := c.PostForm("name")
-	typ := c.PostForm("type")
-	value := c.PostForm("value")
-	flag := c.PostForm("flag")
-	isextend := c.PostForm("isextend")
+	// Read raw JSON from the request body
+	rawData, err := c.GetRawData()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"msg":     "Failed to read request body",
+		})
+		return
+	}
 
-	// Simulate fetching the current user from session or token
-	// userID := "8023" // Replace with actual logic to fetch user from session or context
+	// Parse the raw JSON into a map
+	var requestBody map[string]string
+	if err := json.Unmarshal(rawData, &requestBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"msg":     "Invalid JSON format",
+		})
+		return
+	}
 
-	// Build the SQL query to execute the stored procedure
-	sql := fmt.Sprintf("exec sp_insertSetEmail '%s','%s','%s','%s','%s'", name, typ, value, flag, isextend)
+	// Extract values from the map
+	id := requestBody["id"]
+	name := requestBody["name"]
+	typ := requestBody["type"]
+	value := requestBody["value"]
+	flag := requestBody["flag"]
+
+	// Convert id to NULL if it's empty
+	idValue := "NULL"
+	if id != "" {
+		idValue = id
+	}
+
+	// Build the SQL query
+	sql := fmt.Sprintf("exec sp_insertSetEmail %s, '%s', '%s', '%s', '%s'", idValue, name, typ, value, flag)
 
 	// Execute the query
 	if err := config.DB.Exec(sql).Error; err != nil {
-		// If there's an error, return it in the response
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
 			"msg":     err.Error(),
@@ -263,10 +286,10 @@ func AddSetEmail(c *gin.Context) {
 		return
 	}
 
-	// If the query was successful, return success
+	// Return success
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"msg":     "Data inserted successfully",
+		"msg":     "Data inserted/updated successfully",
 	})
 }
 
