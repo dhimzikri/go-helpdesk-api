@@ -249,13 +249,11 @@ func AddRelation(c *gin.Context) {
 	// Simulate fetching the current user from session or token
 	userID := "8023" // Replace with actual logic to fetch user from session or context
 
-	queryProps := "select '1' as data;"
-
 	// Build the SQL query to execute the stored procedure
 	sql := fmt.Sprintf("exec sp_insertrelation '%s','%s','%s','%s','%s'", relationid, description, subdescription, isactive, userID)
 
 	// Execute the query
-	if err := config.DB.Exec(sql, queryProps).Error; err != nil {
+	if err := config.DB.Exec(sql).Error; err != nil {
 		// If there's an error, return it in the response
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
