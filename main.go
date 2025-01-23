@@ -2,7 +2,7 @@ package main
 
 import (
 	"golang-sqlserver-app/config"
-	"golang-sqlserver-app/controllers"
+	"golang-sqlserver-app/routes"
 	"log"
 
 	"github.com/gin-contrib/cors"
@@ -17,7 +17,6 @@ func main() {
 
 	// Set up the Gin router
 	r := gin.Default()
-	// r.Use(middleware.RateLimitMiddleware)
 	store := cookie.NewStore([]byte("secret"))
 	r.Use(sessions.Sessions("mysession", store))
 
@@ -45,32 +44,8 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	// Auth endpoints
-	r.POST("/login", controllers.Login) // /user/login route
-	r.POST("/register", controllers.Register)
-	r.GET("/logout", controllers.Logout)
-
-	// CRUD endpoints
-	// Existing Cust
-	r.GET("/getCase", controllers.GetCase)
-	r.POST("/saveCase", controllers.SaveCase)
-	r.POST("/closeCase", controllers.CloseCase)
-
-	// New Cust
-	r.GET("/getNewCase", controllers.GetCaseNewCust)
-	r.POST("/SaveNewCase", controllers.SaveNewCase)
-
-	// Props Data
-	r.GET("/getRelation", controllers.GetRelation)
-	r.GET("/getStatus", controllers.GetTblStatus)
-	r.GET("/gettblType", controllers.GetTblType)
-	r.GET("/getAgreement", controllers.AgreementNoHandler())
-	r.GET("/getContact", controllers.GetContact)
-	r.GET("/getSubType", controllers.GetSubType)
-	r.GET("/gettblPriority", controllers.GetTblPriority)
-	r.GET("/getHoliday", controllers.GetHolidays)
-	r.GET("/getSettingEmail", controllers.GetEmailSetting)
-	// r.POST("/sendEmail", controllers.HandleSendEmail)
+	// Setup routes
+	routes.SetupRoutes(r)
 
 	// Start the server using HTTP
 	if err := r.Run("0.0.0.0:8686"); err != nil {
