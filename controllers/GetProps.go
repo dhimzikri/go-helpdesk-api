@@ -243,14 +243,13 @@ func AddRelation(c *gin.Context) {
 	// Parse the request parameters
 	relationid := c.PostForm("relationid")
 	description := c.PostForm("description")
-	subdescription := c.PostForm("subdescription")
 	isactive := c.PostForm("isactive")
 
 	// Simulate fetching the current user from session or token
 	userID := "8023" // Replace with actual logic to fetch user from session or context
 
 	// Build the SQL query to execute the stored procedure
-	sql := fmt.Sprintf("exec sp_insertrelation '%s','%s','%s','%s','%s'", relationid, description, subdescription, isactive, userID)
+	sql := fmt.Sprintf("exec sp_insertrelation '%s','%s','%s','%s'", relationid, description, isactive, userID)
 
 	// Execute the query
 	if err := config.DB.Exec(sql).Error; err != nil {
