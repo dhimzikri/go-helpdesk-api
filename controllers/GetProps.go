@@ -240,31 +240,22 @@ func GetEmailSetting(c *gin.Context) {
 }
 
 func AddSetEmail(c *gin.Context) {
-	// Parse the incoming request
+	// Parse the request parameters
 	name := c.PostForm("name")
-	typ := c.PostForm("type") // `type` is a reserved keyword in Go
+	typ := c.PostForm("type")
 	value := c.PostForm("value")
 	flag := c.PostForm("flag")
-	isextend := 0
+	isextend := c.PostForm("isextend")
 
-	// Check if "isextend" exists in the request
-	if c.PostForm("isextend") != "" {
-		isextend = 1
-	}
+	// Simulate fetching the current user from session or token
+	// userID := "8023" // Replace with actual logic to fetch user from session or context
 
-	// Database connection (replace with your own configuration)
-	// Prepare the SQL query
-	query := `
-	SET NOCOUNT ON;
-	INSERT INTO tblSettingEmail (name, type, value, flag, isextend)
-	VALUES (?, ?, ?, ?, ?);
-	SELECT SCOPE_IDENTITY() AS data;
-	`
+	// Build the SQL query to execute the stored procedure
+	sql := fmt.Sprintf("exec sp_insertSetEmail '%s','%s','%s','%s','%s'", name, typ, value, flag, isextend)
 
-	// Execute the SQL query
-	var insertedID int
-	err := config.DB.Exec(query, name, typ, value, flag, isextend).Scan(&insertedID).Error
-	if err != nil {
+	// Execute the query
+	if err := config.DB.Exec(sql).Error; err != nil {
+		// If there's an error, return it in the response
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
 			"msg":     err.Error(),
@@ -272,13 +263,11 @@ func AddSetEmail(c *gin.Context) {
 		return
 	}
 
-	// Return the result
-	result := map[string]interface{}{
+	// If the query was successful, return success
+	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"msg":     "Data inserted successfully",
-		"data":    insertedID,
-	}
-	c.JSON(http.StatusOK, result)
+	})
 }
 
 func AddRelation(c *gin.Context) {
