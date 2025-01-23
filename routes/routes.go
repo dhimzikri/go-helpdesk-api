@@ -45,7 +45,7 @@ func SetupRoutes(r *gin.Engine) {
 
 		// Props Data
 		props.GET("/getRelation", controllers.GetRelation)
-		props.GET("/addRelation", controllers.AddRelation)
+		props.POST("/addRelation", controllers.AddRelation)
 		props.GET("/getStatus", controllers.GetTblStatus)
 		props.GET("/getAgreement", controllers.AgreementNoHandler())
 		props.GET("/getContact", controllers.GetContact)
