@@ -287,57 +287,83 @@ func GetContact(c *gin.Context) {
 }
 
 func GetSubType(c *gin.Context) {
-	typeID, _ := strconv.Atoi(c.Query("typeid"))
-	query := c.Query("query")
-	col := c.Query("col")
+	db := config.GetDB()
+	// Get query parameters
+	query := c.DefaultQuery("query", "") // Default to an empty string if not provided
+	col := c.DefaultQuery("col", "")     // Default to an empty string if not provided
+	typeID := c.DefaultQuery("typeid", "0")
 
-	// Base query for tblSubType
-	src := config.DB.Table("tblSubType").Select("tblSubType.*, cost_centers.name AS cost_center_name")
+	// Convert typeID to integer
+	typeIDInt, err := strconv.Atoi(typeID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid typeid"})
+		return
+	}
 
-	// Build raw join query manually using db2 for cost_centers
-	joinQuery := "(SELECT id, name FROM portal_ext.dbo.cost_centers) AS cost_centers"
-	src = src.Joins("LEFT JOIN " + joinQuery + " ON tblSubType.cost_center = cost_centers.id")
+	// Base condition
+	src := fmt.Sprintf("typeid=%d AND isactive=1", typeIDInt)
 
-	// Add filters
-	src = src.Where("typeid = ? AND isactive = ?", typeID, 1)
+	// Add filtering if query and col are provided
 	if query != "" && col != "" {
-		src = src.Where(col+" LIKE ?", "%"+query+"%")
+		src = fmt.Sprintf("%s AND %s LIKE '%%%s%%'", src, col, query)
 	}
 
-	// Fetch results into a map
-	var resultData []map[string]interface{}
-	result := src.Find(&resultData)
+	// Build SQL query
+	sqlStr := fmt.Sprintf(`
+		SELECT a.*, b.name AS cost_center_name
+		FROM tblSubType a
+		LEFT JOIN portal_ext..cost_centers b ON a.cost_center = b.id
+		WHERE %s`, src)
 
-	// Handle errors or empty results
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   result.Error.Error(),
-		})
+	// Execute the query
+	rows, err := db.Raw(sqlStr).Rows()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to execute query"})
 		return
 	}
+	defer rows.Close()
 
-	if len(resultData) == 0 {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"total":   0,
-		})
-		return
-	}
-	// Convert keys to lowercase
-	for i := range resultData {
-		lowercaseMap := make(map[string]interface{})
-		for key, value := range resultData[i] {
-			lowercaseMap[strings.ToLower(key)] = value
+	// Prepare results
+	var results []map[string]interface{}
+	for rows.Next() {
+		// Dynamically scan columns into a map
+		columns, _ := rows.Columns()
+		values := make([]interface{}, len(columns))
+		valuePointers := make([]interface{}, len(columns))
+		for i := range values {
+			valuePointers[i] = &values[i]
 		}
-		resultData[i] = lowercaseMap
+
+		// Scan the row into value pointers
+		if err := rows.Scan(valuePointers...); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to scan row"})
+			return
+		}
+
+		// Build the row as a map
+		row := make(map[string]interface{})
+		for i, colName := range columns {
+			var v interface{}
+			val := values[i]
+
+			// Handle NULL values
+			b, ok := val.([]byte)
+			if ok {
+				v = string(b)
+			} else {
+				v = val
+			}
+			row[colName] = v
+		}
+
+		results = append(results, row)
 	}
 
-	// Send successful response
+	// Send the response back as JSON
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"total":   result.RowsAffected,
-		"data":    resultData,
+		"data":    results,
+		"total":   len(results),
 	})
 }
 
@@ -467,15 +493,16 @@ func CreateTblSubType(c *gin.Context) {
 	tblTypeID := c.PostForm("typeid")
 	subtypeid := c.PostForm("subtypeid")
 	subdescription := c.PostForm("subdescription")
-	estimasi := c.PostForm("estimasi")
-	cost_center := c.PostForm("cost_center")
 	isactive := c.PostForm("isactive")
+	costcenter := c.PostForm("cost_center")
+	estimasi := c.PostForm("estimasi")
 
-	// Simulate fetching the current user from session or token
+	// // Simulate fetching the current user from session or token
 	userID := "8023" // Replace with actual logic to fetch user from session or context
 
 	// Build the SQL query to execute the stored procedure
-	sql := fmt.Sprintf("exec sp_insert_tblSubType '%s', '%s', '%s', '%s','%s', '%s', '%s'", tblTypeID, subtypeid, subdescription, estimasi, cost_center, isactive, userID)
+	// sql := fmt.Sprintf("exec sp_insert_tblSubType '%s', '%s', '%s', '%s','%s', '%s', '%s'", tblTypeID, subtypeid, subdescription, estimasi, cost_center, isactive, userID)
+	sql := fmt.Sprintf("exec sp_insert_tblSubType '%s','%s','%s','%s','%s','%s','%s'", tblTypeID, subtypeid, subdescription, isactive, userID, costcenter, estimasi)
 
 	// Execute the query
 	if err := config.DB.Exec(sql).Error; err != nil {
