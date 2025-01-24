@@ -442,7 +442,7 @@ func SaveAssign(c *gin.Context) {
 	}
 
 	// Assuming `userid` is retrieved from a session or request context
-	userid := "example_user" // Replace this with your session-based or token-based user retrieval logic
+	userid := "8023" // Replace this with your session-based or token-based user retrieval logic
 
 	// Construct the SQL query using fmt.Sprintf
 	sqlQuery := fmt.Sprintf(`
