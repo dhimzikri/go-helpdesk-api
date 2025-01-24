@@ -452,6 +452,8 @@ func SaveAssign(c *gin.Context) {
 		insert into tbllog ([tgl], [table_name], [menu], [script])
 		select GETDATE(), '[tblAssignment]', 'assignment',
 			   'exec sp_insertAssignment %s, %s, %s, %d, %s, %d, %s';
+
+		select '1' as data;
 	`, id, costcenterid, employeeid, isactive, employeeid_alternate, isactive_alternate, userid,
 		id, costcenterid, employeeid, isactive, employeeid_alternate, isactive_alternate, userid)
 
