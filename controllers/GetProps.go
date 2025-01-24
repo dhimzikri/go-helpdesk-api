@@ -379,3 +379,27 @@ func GetEmp(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"success": false})
 	}
 }
+
+func GetAssignment(c *gin.Context) {
+	// Define a slice of maps to hold the query results
+	var results []map[string]interface{}
+
+	// Execute the query using GORM's raw SQL method
+	if err := config.DB.Table("tblAssignment").Find(&results).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	// Check if any data was retrieved
+	if len(results) == 0 {
+		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
+		return
+	}
+
+	// Return the results as JSON
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"total":   len(results),
+		"data":    results,
+	})
+}
