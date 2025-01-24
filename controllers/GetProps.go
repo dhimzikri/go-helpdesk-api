@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 func GetTblType(c *gin.Context) {
@@ -325,8 +324,6 @@ func AddRelation(c *gin.Context) {
 }
 
 func GetUsers(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
-
 	// Query parameters for filtering and pagination
 	query := c.Query("query")
 	col := c.Query("col")
@@ -356,18 +353,18 @@ func GetUsers(c *gin.Context) {
 	`
 	if query != "" && col != "" {
 		countSQL += " AND " + col + " LIKE ?"
-		db.Raw(countSQL, "%"+query+"%").Scan(&total)
+		config.DB.Raw(countSQL, "%"+query+"%").Scan(&total)
 	} else {
-		db.Raw(countSQL).Scan(&total)
+		config.DB.Raw(countSQL).Scan(&total)
 	}
 
 	// Paginated query
 	paginatedSQL := baseSQL + " ORDER BY a.user_id OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
 	var users []map[string]interface{}
 	if query != "" && col != "" {
-		db.Raw(paginatedSQL, "%"+query+"%", start, limit).Scan(&users)
+		config.DB.Raw(paginatedSQL, "%"+query+"%", start, limit).Scan(&users)
 	} else {
-		db.Raw(paginatedSQL, start, limit).Scan(&users)
+		config.DB.Raw(paginatedSQL, start, limit).Scan(&users)
 	}
 
 	// Return JSON response
