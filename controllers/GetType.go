@@ -10,32 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetBranchID(c *gin.Context) {
-	// Define a slice of maps to hold the query results
-	var results []map[string]interface{}
-
-	// Execute the query using GORM's raw SQL method
-	if err := config.DB2.Table("cost_centers").
-		Select("id_cost_center as branchid, name as branchfullname").
-		Find(&results).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
-		return
-	}
-
-	// Check if any data was retrieved
-	if len(results) == 0 {
-		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
-		return
-	}
-
-	// Return the results as JSON
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"total":   len(results),
-		"data":    results,
-	})
-}
-
 func CreateTblType(c *gin.Context) {
 	// Parse the request parameters
 	tblTypeID := c.PostForm("tblTypeid")
@@ -49,7 +23,7 @@ func CreateTblType(c *gin.Context) {
 	}
 
 	// Simulate fetching the current user from session or token
-	userID := "current_user" // Replace with actual logic to fetch user from session or context
+	userID := "8023" // Replace with actual logic to fetch user from session or context
 
 	// Build the SQL query to execute the stored procedure
 	sql := fmt.Sprintf("EXEC sp_insert_tblType '%s', '%s', '%d', '%s'", tblTypeID, name, voidInt, userID)
@@ -84,7 +58,6 @@ func CreateTblSubType(c *gin.Context) {
 	userID := "8023" // Replace with actual logic to fetch user from session or context
 
 	// Build the SQL query to execute the stored procedure
-	// sql := fmt.Sprintf("exec sp_insert_tblSubType '%s', '%s', '%s', '%s','%s', '%s', '%s'", tblTypeID, subtypeid, subdescription, estimasi, cost_center, isactive, userID)
 	sql := fmt.Sprintf("exec sp_insert_tblSubType '%s','%s','%s','%s','%s','%s','%s'", tblTypeID, subtypeid, subdescription, isactive, userID, costcenter, estimasi)
 
 	// Execute the query
@@ -101,6 +74,40 @@ func CreateTblSubType(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"msg":     "Data inserted successfully",
+	})
+}
+
+func GetTblType(c *gin.Context) {
+	// Define a slice of maps to hold the query results
+	var results []map[string]interface{}
+
+	// Execute the query using GORM's raw SQL method
+	if err := config.DB.Table("tblType").Find(&results).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		return
+	}
+
+	// Convert all keys in the results to lowercase
+	lowercaseResults := make([]map[string]interface{}, len(results))
+	for i, result := range results {
+		lowercaseMap := make(map[string]interface{})
+		for key, value := range result {
+			lowercaseMap[strings.ToLower(key)] = value
+		}
+		lowercaseResults[i] = lowercaseMap
+	}
+
+	// Check if any data was retrieved
+	if len(lowercaseResults) == 0 {
+		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
+		return
+	}
+
+	// Return the lowercase results as JSON
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"total":   len(lowercaseResults),
+		"data":    lowercaseResults,
 	})
 }
 
