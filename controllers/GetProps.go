@@ -418,3 +418,52 @@ func GetAssignments(c *gin.Context) {
 		"data":    assignments,
 	})
 }
+
+func SaveAssign(c *gin.Context) {
+	// Parse JSON input
+	var request map[string]interface{}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": "Invalid input"})
+		return
+	}
+
+	// Extract values from the input
+	id := request["id"].(string)
+	costcenterid := request["costcenterid"].(string)
+	employeeid := request["employeeid"].(string)
+	isactive := 0
+	if request["isactive"] == "on" {
+		isactive = 1
+	}
+	employeeid_alternate := request["employeeid_alternate"].(string)
+	isactive_alternate := 0
+	if request["isactive_alternate"] == "on" {
+		isactive_alternate = 1
+	}
+
+	// Assuming `userid` is retrieved from a session or request context
+	userid := "example_user" // Replace this with your session-based or token-based user retrieval logic
+
+	// Construct the SQL query using fmt.Sprintf
+	sqlQuery := fmt.Sprintf(`
+		set nocount on;
+		exec sp_insertAssignment '%s', '%s', '%s', '%d', '%s', '%d', '%s';
+
+		insert into tbllog ([tgl], [table_name], [menu], [script])
+		select GETDATE(), '[tblAssignment]', 'assignment',
+			   'exec sp_insertAssignment %s, %s, %s, %d, %s, %d, %s';
+
+		select '1' as data;
+	`, id, costcenterid, employeeid, isactive, employeeid_alternate, isactive_alternate, userid,
+		id, costcenterid, employeeid, isactive, employeeid_alternate, isactive_alternate, userid)
+
+	// Execute the SQL query
+	err := config.DB.Exec(sqlQuery).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+
+	// Respond with success
+	c.JSON(http.StatusOK, gin.H{"success": true, "msg": ""})
+}

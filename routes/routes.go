@@ -56,5 +56,6 @@ func SetupRoutes(r *gin.Engine) {
 		// get Assigment
 		props.GET("/getEmp", controllers.GetUsers)
 		props.GET("/getAssign", controllers.GetAssignments)
+		props.GET("/setAssign", controllers.SaveAssign)
 	}
 }
