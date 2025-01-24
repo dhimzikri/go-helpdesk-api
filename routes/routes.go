@@ -54,7 +54,7 @@ func SetupRoutes(r *gin.Engine) {
 		props.GET("/getContact", controllers.GetContact)
 
 		// get Assigment
-		props.GET("/getEmp", controllers.GetEmp)
-		props.GET("/getAssign", controllers.GetAssignment)
+		props.GET("/getEmp", controllers.GetUsers)
+		props.GET("/getAssign", controllers.GetAssignments)
 	}
 }

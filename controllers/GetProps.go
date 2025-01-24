@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func GetTblType(c *gin.Context) {
@@ -323,83 +324,100 @@ func AddRelation(c *gin.Context) {
 	})
 }
 
-func GetEmp(c *gin.Context) {
-	// Parse query parameters
+func GetUsers(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+
+	// Query parameters for filtering and pagination
 	query := c.Query("query")
 	col := c.Query("col")
 	start, _ := strconv.Atoi(c.DefaultQuery("start", "0"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	// countLast := start + limit
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
 
-	// Initialize dynamic filtering
-	src := "0=0" // Equivalent to "and 0=0" in PHP
+	// Base SQL query
+	baseSQL := `
+		SELECT user_name, real_name, b.name AS divisi
+		FROM portal_ext.dbo.users a
+		INNER JOIN portal_ext.dbo.cost_centers b ON a.cost_center_id = b.id_cost_center
+		WHERE a.user_name NOT IN ('admin', 'opr') AND a.is_active = 1
+	`
+
+	// Add filtering
 	if query != "" && col != "" {
-		src += " AND " + col + " LIKE '%" + query + "%'"
+		baseSQL += " AND " + col + " LIKE ?"
 	}
 
-	// Count query
-	var totalCount int64
-	countQuery := `
-    SELECT COUNT(*) as total_count
-    FROM portal_ext.dbo.users a
-    INNER JOIN portal_ext.dbo.cost_centers b ON a.cost_center_id = b.id_cost_center
-    WHERE user_name NOT IN ('admin', 'opr') AND is_active = 1 AND ` + src
-	config.DB2.Raw(countQuery).Scan(&totalCount)
-
-	// Data query with pagination
-	var results []map[string]interface{}
-	dataQuery := `
-    SELECT user_name, real_name, b.name as divisi
-    FROM portal_ext.dbo.users a
-    INNER JOIN portal_ext.dbo.cost_centers b ON a.cost_center_id = b.id_cost_center
-    WHERE user_name NOT IN ('admin', 'opr') AND is_active = 1 AND ` + src + `
-    ORDER BY user_id
-    OFFSET ? ROWS FETCH NEXT ? ROWS ONLY`
-
-	config.DB2.Raw(dataQuery, start, limit).Scan(&results)
-
-	// Convert keys to lowercase
-	lowercaseResults := make([]map[string]interface{}, len(results))
-	for i, row := range results {
-		lowercaseRow := make(map[string]interface{})
-		for key, value := range row {
-			lowercaseRow[strings.ToLower(key)] = value
-		}
-		lowercaseResults[i] = lowercaseRow
-	}
-
-	// Build response
-	if len(lowercaseResults) > 0 {
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"total":   totalCount,
-			"data":    lowercaseResults,
-		})
+	// Total count query
+	var total int64
+	countSQL := `
+		SELECT COUNT(1) 
+		FROM portal_ext.dbo.users a
+		INNER JOIN portal_ext.dbo.cost_centers b ON a.cost_center_id = b.id_cost_center
+		WHERE a.user_name NOT IN ('admin', 'opr') AND a.is_active = 1
+	`
+	if query != "" && col != "" {
+		countSQL += " AND " + col + " LIKE ?"
+		db.Raw(countSQL, "%"+query+"%").Scan(&total)
 	} else {
-		c.JSON(http.StatusOK, gin.H{"success": false})
-	}
-}
-
-func GetAssignment(c *gin.Context) {
-	// Define a slice of maps to hold the query results
-	var results []map[string]interface{}
-
-	// Execute the query using GORM's raw SQL method
-	if err := config.DB.Table("tblAssignment").Find(&results).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
-		return
+		db.Raw(countSQL).Scan(&total)
 	}
 
-	// Check if any data was retrieved
-	if len(results) == 0 {
-		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
-		return
+	// Paginated query
+	paginatedSQL := baseSQL + " ORDER BY a.user_id OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
+	var users []map[string]interface{}
+	if query != "" && col != "" {
+		db.Raw(paginatedSQL, "%"+query+"%", start, limit).Scan(&users)
+	} else {
+		db.Raw(paginatedSQL, start, limit).Scan(&users)
 	}
 
-	// Return the results as JSON
+	// Return JSON response
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"total":   len(results),
-		"data":    results,
+		"total":   total,
+		"data":    users,
+	})
+}
+
+// GetAssignments fetches assignment data without predefined structs
+func GetAssignments(c *gin.Context) {
+
+	// Query parameters for pagination
+	start, _ := strconv.Atoi(c.DefaultQuery("start", "0"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "30"))
+	query := c.Query("query")
+	col := c.Query("col")
+
+	// Base SQL query
+	baseSQL := `SELECT * FROM v_tblAssignment WHERE 1=1`
+
+	// Add filtering
+	if query != "" && col != "" {
+		baseSQL += " AND " + col + " LIKE ?"
+	}
+
+	// Total count query
+	var total int64
+	countSQL := `SELECT COUNT(1) FROM v_tblAssignment WHERE 1=1`
+	if query != "" && col != "" {
+		countSQL += " AND " + col + " LIKE ?"
+		config.DB.Raw(countSQL, "%"+query+"%").Scan(&total)
+	} else {
+		config.DB.Raw(countSQL).Scan(&total)
+	}
+
+	// Paginated query
+	paginatedSQL := baseSQL + " ORDER BY id OFFSET ? ROWS FETCH NEXT ? ROWS ONLY"
+	var assignments []map[string]interface{}
+	if query != "" && col != "" {
+		config.DB.Raw(paginatedSQL, "%"+query+"%", start, limit).Scan(&assignments)
+	} else {
+		config.DB.Raw(paginatedSQL, start, limit).Scan(&assignments)
+	}
+
+	// Return JSON response
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"total":   total,
+		"data":    assignments,
 	})
 }
