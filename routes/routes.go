@@ -61,5 +61,8 @@ func SetupRoutes(r *gin.Engine) {
 		props.POST("/addStatus", controllers.SaveStatus)
 		props.GET("/getStatus", controllers.GetTblStatus)
 		props.POST("/uploadXls", controllers.UploadXLS)
+
+		// Inbox and Hist
+		props.GET("/getJoinCases", controllers.GetJoinCases)
 	}
 }
