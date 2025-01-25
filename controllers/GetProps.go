@@ -189,7 +189,7 @@ func SaveStatus(c *gin.Context) {
 func UploadXLS(c *gin.Context) {
 	sessionLogin := c.GetString("user_name")
 
-	file, err := c.FormFile("file")
+	file, err := c.FormFile("upload_document")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": "File is required"})
 		return
