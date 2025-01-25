@@ -129,35 +129,28 @@ func SaveStatus(c *gin.Context) {
 	// Parse request parameters
 	statusid := c.PostForm("statusid")
 	statusname := c.PostForm("statusname")
+	userid := "8023" // Replace with actual session-based user retrieval logic
 	value := c.PostForm("value")
 	isactive := 0
 	if c.PostForm("isactive") == "on" || c.PostForm("isactive") == "1" {
 		isactive = 1
 	}
 	description := c.PostForm("description")
-	userid := "8023" // Replace with actual session-based user retrieval logic
 
+	sqlQuery := fmt.Sprintf("exec sp_insertStatus %s, '%s', '%s', '%s', '%d','%s' select '1' as data", statusid, statusname, userid, value, isactive, description)
 	// Build SQL query
-	sqlQuery := fmt.Sprintf(`
-		SET NOCOUNT ON;
-		EXEC sp_insertStatus 
-			@StatusID = %s,
-			@StatusName = '%s',
-			@usrupd = '%s',
-			@dtmupd = NULL,
-			@value = '%s',
-			@isactive = %d,
-			@Description = '%s';
-		SELECT '1' AS data;
-	`,
-		// Use NULL if statusid is empty, otherwise quote the value
-		func() string {
-			if statusid != "" {
-				return fmt.Sprintf("'%s'", statusid)
-			}
-			return "NULL"
-		}(),
-		statusname, userid, value, isactive, description)
+	// sqlQuery := fmt.Sprintf("
+	// 	SET NOCOUNT ON;
+	// 	EXEC sp_insertStatus %s, '%s', '%s', '%s', %d,'%s';
+	// 	SELECT '1' AS data"
+	// 	// Use NULL if statusid is empty, otherwise quote the value
+	// 	func() string {
+	// 		if statusid != "" {
+	// 			return fmt.Sprintf("'%s'", statusid)
+	// 		}
+	// 		return "NULL"
+	// 	}(),
+	// 	statusname, userid, value, isactive, description)
 
 	// Execute the SQL query
 	err := config.DB.Exec(sqlQuery).Error
