@@ -85,6 +85,7 @@ func GetCase(c *gin.Context) {
 		INNER JOIN status e ON a.statusid = e.statusid
 		INNER JOIN contact f ON a.contactid = f.contactid
 		INNER JOIN relation g ON a.relationid = g.relationid
+		LEFT JOIN [PORTAL_EXT].[dbo].[users] u ON a.usrupd = u.user_name
 		WHERE %s
 	`, whereClause)
 
@@ -103,7 +104,24 @@ func GetCase(c *gin.Context) {
 			a.priorityid, d.Description AS prioritydescription, a.statusid, e.statusname,
 			e.description AS statusdescription, a.customername, a.branchid, a.description, a.phoneno,
 			a.email, a.usrupd, a.dtmupd, a.date_cr, f.contactid, f.Description AS contactdescription,
-			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.email_, a.foragingdays
+			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.email_, a.foragingdays,
+			dbo.FnGetFullBranchName(a.branchid) as cabang,
+			case when d.PriorityID=1 then
+			(case when (d.sla-DATEDIFF(day,a.dtmupd,GETDATE()))>3 then 'green' 
+			when (d.sla-DATEDIFF(day,a.dtmupd,GETDATE()))>=0 and (d.sla-DATEDIFF(day,a.dtmupd,GETDATE()))<=3 then  'yellow' 
+			else 'red'
+			end)
+			when d.PriorityID=2 then
+			(case when (d.sla-DATEDIFF(day,a.dtmupd,GETDATE()))>3 then 'green' 
+			when (d.sla-DATEDIFF(day,a.dtmupd,GETDATE()))>=0 and (d.sla-DATEDIFF(day,a.dtmupd,GETDATE()))<=3 then  'yellow' 
+			else 'red'
+			end)
+			when d.PriorityID=3 then
+			(case when (d.sla-DATEDIFF(day,a.dtmupd,GETDATE()))=0 then 'green' 
+			else 'red'
+			end)	
+			else ''	 											 
+			end as flagcolor,d.sla-DATEDIFF(day,a.dtmupd,GETDATE()) as overdue
 		FROM [Case] a
 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
 		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
@@ -111,6 +129,7 @@ func GetCase(c *gin.Context) {
 		INNER JOIN status e ON a.statusid = e.statusid
 		INNER JOIN contact f ON a.contactid = f.contactid
 		INNER JOIN relation g ON a.relationid = g.relationid
+		LEFT JOIN [PORTAL_EXT].[dbo].[users] u ON a.usrupd = u.user_name
 		WHERE %s
 		ORDER BY RIGHT(a.ticketno, 3) DESC
 		OFFSET %d ROWS FETCH NEXT %d ROWS ONLY
