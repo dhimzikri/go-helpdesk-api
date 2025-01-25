@@ -60,5 +60,6 @@ func SetupRoutes(r *gin.Engine) {
 		// SetStatus and Holiday
 		props.POST("/addStatus", controllers.SaveStatus)
 		props.GET("/getStatus", controllers.GetTblStatus)
+		props.POST("/uploadXls", controllers.UploadXLS)
 	}
 }

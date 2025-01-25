@@ -34,7 +34,7 @@ func GetEmailSetting(c *gin.Context) {
 }
 
 func AddSetEmail(c *gin.Context) {
-	// Read raw JSON from the request body
+	// set to raw json
 	rawData, err := c.GetRawData()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -44,7 +44,7 @@ func AddSetEmail(c *gin.Context) {
 		return
 	}
 
-	// Parse the raw JSON into a map
+	// parse theb mapthe raw JSON
 	var requestBody map[string]string
 	if err := json.Unmarshal(rawData, &requestBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -54,23 +54,22 @@ func AddSetEmail(c *gin.Context) {
 		return
 	}
 
-	// Extract values from the map
 	id := requestBody["id"]
 	name := requestBody["name"]
 	typ := requestBody["type"]
 	value := requestBody["value"]
 	flag := requestBody["flag"]
 
-	// Convert id to NULL if it's empty
+	// if null -> ""
 	idValue := "NULL"
 	if id != "" {
 		idValue = id
 	}
 
-	// Build the SQL query
+	// set sp
 	sql := fmt.Sprintf("exec sp_insertSetEmail %s, '%s', '%s', '%s', '%s'", idValue, name, typ, value, flag)
 
-	// Execute the query
+	// exec sp
 	if err := config.DB.Exec(sql).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
@@ -79,7 +78,7 @@ func AddSetEmail(c *gin.Context) {
 		return
 	}
 
-	// Return success
+	// response
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"msg":     "Data inserted/updated successfully",

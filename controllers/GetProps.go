@@ -5,8 +5,11 @@ import (
 	"golang-sqlserver-app/config"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
+	"gorm.io/gorm"
 )
 
 func GetTblPriority(c *gin.Context) {
@@ -181,4 +184,124 @@ func SaveStatus(c *gin.Context) {
 
 	// Respond with success
 	c.JSON(http.StatusOK, gin.H{"success": true, "msg": ""})
+}
+
+func UploadXLS(c *gin.Context) {
+	sessionLogin := c.GetString("user_name")
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": "File is required"})
+		return
+	}
+
+	inputFileName := "./uploads/" + file.Filename
+	err = c.SaveUploadedFile(file, inputFileName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"msg":     "Unable to save file: " + err.Error(),
+		})
+		return
+	}
+
+	f, err := excelize.OpenFile(inputFileName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"msg":     "Unable to open file: " + err.Error(),
+		})
+		return
+	}
+
+	sheetName := f.GetSheetName(0)
+	rows, err := f.GetRows(sheetName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"msg":     "Unable to read rows: " + err.Error(),
+		})
+		return
+	}
+
+	if err := config.DB.Exec("TRUNCATE TABLE holiday_temp").Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": "Error truncating holiday_temp table"})
+		return
+	}
+
+	var stringBuilder string
+	count := 0
+
+	// Start from the second row (index 1) to skip the header
+	for i := 1; i < len(rows); i++ {
+		row := rows[i]
+		if len(row) >= 4 && row[0] != "" {
+			if count > 0 {
+				stringBuilder += ","
+			}
+
+			stringBuilder += fmt.Sprintf("('%s', '%s', '%s', '%s', '%s', '%s')",
+				row[0],
+				row[1],
+				row[2],
+				row[3],
+				sessionLogin,
+				time.Now().Format("2006-01-02 15:04:05"))
+			count++
+
+			if count == 200 {
+				sqlStr := "INSERT INTO holiday_temp (tanggal, hari, keterangan, Detail, usrupd, dtmupd) VALUES " + stringBuilder
+				if err := config.DB.Exec(sqlStr).Error; err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": "Batch insert error"})
+					return
+				}
+				count = 0
+				stringBuilder = ""
+			}
+		}
+	}
+
+	if stringBuilder != "" {
+		sqlStr := "INSERT INTO holiday_temp (tanggal, hari, keterangan, Detail, usrupd, dtmupd) VALUES " + stringBuilder
+		if err := config.DB.Exec(sqlStr).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": "Final insert error"})
+			return
+		}
+	}
+
+	// Validate data
+	var totdata int
+	config.DB.Raw("SELECT COUNT(*) FROM (SELECT tanggal, COUNT(*) as jml FROM holiday_temp GROUP BY tanggal HAVING COUNT(*) <> 1) AS Libur").Scan(&totdata)
+	if totdata != 0 {
+		c.JSON(http.StatusOK, gin.H{"success": false, "msg": "Duplicate dates are not allowed"})
+		return
+	}
+
+	config.DB.Raw("SELECT COUNT(DISTINCT YEAR(tanggal)) FROM holiday_temp").Scan(&totdata)
+	if totdata > 1 {
+		c.JSON(http.StatusOK, gin.H{"success": false, "msg": "Multiple years are not allowed"})
+		return
+	}
+
+	err = config.DB.Transaction(func(tx *gorm.DB) error {
+		var year string
+		tx.Raw("SELECT DISTINCT YEAR(tanggal) FROM holiday_temp").Scan(&year)
+
+		if err := tx.Exec("DELETE FROM holiday WHERE YEAR(tanggal) = ?", year).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Exec("INSERT INTO holiday SELECT * FROM holiday_temp").Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": "Error saving holiday data"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "msg": "Data saved successfully"})
 }
