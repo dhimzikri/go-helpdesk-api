@@ -126,40 +126,53 @@ func GetHolidays(c *gin.Context) {
 }
 
 func SaveStatus(c *gin.Context) {
-	// Parse request parameters
-	statusid := c.PostForm("statusid")
-	statusname := c.PostForm("statusname")
-	value := c.PostForm("value")
-	isactive := 0
-	if c.PostForm("isactive") == "on" || c.PostForm("isactive") == "1" {
-		isactive = 1
+	// Parse raw JSON payload
+	var requestData map[string]interface{}
+	if err := c.BindJSON(&requestData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": "Invalid JSON payload"})
+		return
 	}
-	description := c.PostForm("description")
-	userid := "8023" // Replace with actual session-based user retrieval logic
+
+	// Extract fields from requestData
+	statusID := "null"
+	if id, ok := requestData["statusid"]; ok {
+		statusID = fmt.Sprintf("'%v'", id)
+	}
+	statusName := requestData["statusname"].(string)
+	value := requestData["value"].(string)
+	description := requestData["description"].(string)
+
+	isActive := 0
+	if active, ok := requestData["isactive"]; ok && active.(bool) {
+		isActive = 1
+	}
+
+	userID := "8023" // Replace with session-based user retrieval logic
+
+	// Log the parsed data for debugging
+	fmt.Printf("Parsed Data: %+v\n", requestData)
 
 	// Build SQL query
 	sqlquery := fmt.Sprintf(`
-		set nocount on;
-		exec sp_insertstatus 
-			@statusid = %s,
-			@statusname = '%s',
-			@usrupd = '%s',
-			@dtmupd = null,
-			@value = '%s',
-			@isactive = %d,
-			@description = '%s';
-		select '1' as data;
-	`,
-		// Use null if statusid is empty, otherwise quote the value
-		func() string {
-			if statusid != "" {
-				return fmt.Sprintf("'%s'", statusid)
-			}
-			return "null"
-		}(),
-		statusname, userid, value, isactive, description)
+        set nocount on;
+        exec sp_insertstatus 
+            @statusid = %s,
+            @statusname = '%s',
+            @usrupd = '%s',
+            @dtmupd = null,
+            @value = '%s',
+            @isactive = %d,
+            @description = '%s';
+        select '1' as data;
+    `,
+		statusID,
+		statusName,
+		userID,
+		value,
+		isActive,
+		description)
 
-	// Execute the SQL query
+	// Execute SQL query
 	err := config.DB.Exec(sqlquery).Error
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
