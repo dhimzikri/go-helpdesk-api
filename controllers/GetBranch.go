@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"golang-sqlserver-app/config"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -57,6 +58,40 @@ func GetBranch(c *gin.Context) {
 
 	// Return the result
 	c.JSON(http.StatusOK, result)
+}
+
+func HistoryInfo(c *gin.Context) {
+	ticketno := c.DefaultQuery("ticketno", "")
+	query := c.DefaultQuery("query", "")
+	col := c.DefaultQuery("col", "")
+
+	// Construct the query conditions
+	condition := config.DB.Table("case_history a").
+		Joins("INNER JOIN [status] e ON a.statusid = e.statusid").
+		Joins("LEFT JOIN [PORTAL_EXT].[dbo].[users] u ON a.usrupd = u.user_name").
+		Where("ticketno = ? AND a.usrupd IN (?)", ticketno, config.DB.Table("[PORTAL_EXT].[dbo].[users]").Select("user_name").
+			Where("real_name LIKE ?", "%"+query+"%"))
+
+	// Apply additional filter if query and column are provided
+	if query != "" && col != "" {
+		condition = condition.Where(col+" LIKE ?", "%"+query+"%")
+	}
+
+	var result []map[string]interface{}
+	err := condition.Select("a.*, e.StatusName AS statusname, e.statusid AS statusid, u.real_name AS real_name").
+		Order("CONVERT(int, a.id)").Scan(&result).Error
+
+	if err != nil {
+		log.Println("Query execution error:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Query execution error"})
+		return
+	}
+
+	if len(result) > 0 {
+		c.JSON(http.StatusOK, gin.H{"success": true, "total": len(result), "data": result})
+	} else {
+		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
+	}
 }
 
 // Branch With JOINS
