@@ -23,13 +23,13 @@ func GetHistory(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.Query("limit"))
 
 	// Get user from session
-	userid := c.GetString("user_name") // Assuming you have middleware setting this
+	userid := "8023" // Assuming you have middleware setting this
 
 	var src string
 	if userid == "admin" || readHeadCS(userid) { // You'll need to implement readHeadCS function
 		src = fmt.Sprintf("CONVERT(DATE, a.dtmupd) >= '%s' and CONVERT(DATE, a.dtmupd) <= '%s'", startDate, endDate)
 	} else {
-		src = fmt.Sprintf("0=0 and a.dtmupd >= '%s' and a.dtmupd < dateadd(day, 1, '%s') and a.usrupd = '%s'", startDate, endDate, userid)
+		src = fmt.Sprintf("0=0 and a.dtmupd >= '%s' and a.dtmupd < dateadd(day, 1, '%s')", startDate, endDate)
 	}
 
 	if query != "" && col != "" {

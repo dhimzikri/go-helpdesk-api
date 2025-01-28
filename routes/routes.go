@@ -63,7 +63,6 @@ func SetupRoutes(r *gin.Engine) {
 		props.POST("/uploadXls", controllers.UploadXLS)
 
 		// Inbox and Hist
-		props.GET("/getJoinCases", controllers.GetJoinCases)
-		props.GET("/getHistInfo", controllers.GetHistory)
+		props.GET("/getJoinCases", controllers.GetHistory)
 	}
 }
