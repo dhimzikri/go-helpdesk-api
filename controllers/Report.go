@@ -110,24 +110,14 @@ func GetHistory(c *gin.Context) {
 						c.employeeid, a.relationid, g.description AS relationdescription, 
 						a.relationname, dbo.FnGetFullBranchName(a.branchid) AS cabang,
 						'CS HO' AS channel, CONVERT(varchar, a.foragingdays, 106) AS foragingdays,
-						FORMAT(dbo.getTanggalPenyelesaian(a.ticketno), 'dd MMM yyyy') AS tanggalpenyelesaian, a.date_cr,
-						---dbo.getWaktuPenyelesaian(a.ticketno) AS waktupenyelesaian,
-						CASE
-							WHEN dbo.getTanggalPenyelesaian(a.ticketno) IS NULL THEN NULL 
-							WHEN dbo.GetBusinessDays(a.foragingdays, dbo.getTanggalPenyelesaian(a.ticketno)) = 0 
-							THEN CONCAT('0 Day(s), ', FORMAT(dbo.getTanggalPenyelesaian(a.ticketno), 'HH:mm:ss'))
-							ELSE CONCAT(
-							    dbo.GetBusinessDays(a.foragingdays, dbo.getTanggalPenyelesaian(a.ticketno)), 
-							    ' Day(s), ', 
-							    FORMAT(dbo.getTanggalPenyelesaian(a.ticketno), 'HH:mm:ss')
-							)
-						END AS waktupenyelesaian,
+						FORMAT(dbo.getTanggalPenyelesaian(a.ticketno), 'dd MMM yyyy') AS tanggalpenyelesaian,
+						dbo.getWaktuPenyelesaian(a.ticketno) AS waktupenyelesaian,
 						CASE 
 							WHEN xx.statusid = 5 
 							THEN FORMAT(xx.dtmupd, 'dd MMM yyyy') 
 							ELSE '' 
-						END AS tgl_ext
-						---FORMAT(CONVERT(DATE, a.date_cr), 'dd MMM yyyy') AS date_cr
+						END AS tgl_ext,
+						FORMAT(CONVERT(DATE, a.date_cr), 'dd MMM yyyy') AS date_cr
 					FROM [Case] a
 					INNER JOIN tbltype b ON a.TypeID = b.TypeID
 					INNER JOIN (
@@ -166,24 +156,14 @@ func GetHistory(c *gin.Context) {
 						c.employeeid, a.relationid, g.description AS relationdescription, 
 						a.relationname, dbo.FnGetFullBranchName(a.branchid) AS cabang,
 						'CS HO' AS channel, CONVERT(varchar, a.foragingdays, 106) AS foragingdays,
-						FORMAT(dbo.getTanggalPenyelesaian(a.ticketno), 'dd MMM yyyy') AS tanggalpenyelesaian, a.date_cr,
-						---dbo.getWaktuPenyelesaian(a.ticketno) AS waktupenyelesaian,
-						CASE
-							WHEN dbo.getTanggalPenyelesaian(a.ticketno) IS NULL THEN NULL 
-							WHEN dbo.GetBusinessDays(a.foragingdays, dbo.getTanggalPenyelesaian(a.ticketno)) = 0 
-							THEN CONCAT('0 Day(s), ', FORMAT(dbo.getTanggalPenyelesaian(a.ticketno), 'HH:mm:ss'))
-							ELSE CONCAT(
-								dbo.GetBusinessDays(a.foragingdays, dbo.getTanggalPenyelesaian(a.ticketno)), 
-								' Day(s), ', 
-								FORMAT(dbo.getTanggalPenyelesaian(a.ticketno), 'HH:mm:ss')
-							)
-						END AS waktupenyelesaian,
+						FORMAT(dbo.getTanggalPenyelesaian(a.ticketno), 'dd MMM yyyy') AS tanggalpenyelesaian,
+						dbo.getWaktuPenyelesaian(a.ticketno) AS waktupenyelesaian,
 						CASE 
 							WHEN xx.StatusName = 'Extend' 
 							THEN FORMAT(xx.dtmupd, 'dd MMM yyyy') 
 							ELSE '' 
-						END AS tgl_ext
-						---FORMAT(CONVERT(DATE, a.date_cr), 'dd MMM yyyy') AS date_cr
+						END AS tgl_ext,
+						FORMAT(CONVERT(DATE, a.date_cr), 'dd MMM yyyy') AS date_cr
 					FROM [Case_NewCustomer] a
 					INNER JOIN tbltype b ON a.TypeID = b.TypeID
 					INNER JOIN (
@@ -210,7 +190,7 @@ func GetHistory(c *gin.Context) {
 					WHERE %s 
 				) AS a
 			) AS a
-			where RowNumber>%d and RowNumber<=%d order by a.foragingdays asc
+			where RowNumber>%d and RowNumber<=%d order by a.foragingdays desc
 	`, src, src, src, src, start, limit)
 
 	var cases []map[string]interface{}
