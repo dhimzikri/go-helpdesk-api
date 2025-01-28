@@ -98,7 +98,7 @@ func GetCase(c *gin.Context) {
 			a.priorityid, d.Description AS prioritydescription, a.statusid, e.statusname,
 			e.description AS statusdescription, a.customername, a.branchid, a.description, a.phoneno,
 			a.email, a.usrupd, a.dtmupd, a.date_cr, f.contactid, f.Description AS contactdescription,
-			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, %s , a.foragingdays
+			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.email_ , a.foragingdays
 		FROM [Case] a
 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
 		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
