@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
 )
 
 func GetHistory(c *gin.Context) {
@@ -226,4 +227,250 @@ func readHeadCS(username string) bool {
 	}
 
 	return count > 0
+}
+
+func ExportXLS(c *gin.Context) {
+	// Define the SQL query (replace placeholders with actual values)
+	query := c.Query("query")
+	col := c.Query("col")
+	startDate := c.Query("startDate")
+	endDate := c.Query("endDate")
+
+	// Handle pagination
+	start := 0
+	if c.Query("start") != "" {
+		start, _ = strconv.Atoi(c.Query("start"))
+	}
+	limit, _ := strconv.Atoi(c.Query("limit"))
+
+	// Get user from session
+	userid := "8023" // Assuming you have middleware setting this
+
+	var src string
+	if userid == "admin" || readHeadCS(userid) { // You'll need to implement readHeadCS function
+		src = fmt.Sprintf("CONVERT(DATE, a.dtmupd) >= '%s' and CONVERT(DATE, a.dtmupd) <= '%s'", startDate, endDate)
+	} else {
+		src = fmt.Sprintf("0=0 and a.dtmupd >= '%s' and a.dtmupd < dateadd(day, 1, '%s')", startDate, endDate)
+	}
+
+	if query != "" && col != "" {
+		src = src + " AND " + col + " LIKE '%" + query + "%'"
+	}
+	// Generate a unique cache key based on query parameters
+	cacheKey := fmt.Sprintf("cases_page_%d_limit_%d_conditions_%s", start, limit, src)
+
+	// Check if the data is already in the cache
+	if cachedData, found := caseCache.Get(cacheKey); found {
+		// Return cached data
+		c.JSON(http.StatusOK, cachedData)
+		return
+	}
+	// email_ := "a.email_"
+
+	// Build SQL query for fetching paginated data
+	sqlQuery := fmt.Sprintf(`SET NOCOUNT ON;
+
+			DECLARE @jml AS int;
+
+			SELECT @jml = COUNT(a.ticketno)
+			FROM (
+				SELECT a.ticketno
+				FROM [Case] a
+				INNER JOIN tbltype b ON a.TypeID = b.TypeID
+				INNER JOIN (
+					SELECT a.*, 
+						CASE 
+							WHEN b.isactive = 1 AND b.isactive_alternate = 0 THEN b.employeeid
+							WHEN b.isactive = 0 AND b.isactive_alternate = 1 THEN b.employeeid_alternate
+							ELSE b.employeeid
+						END AS employeeid
+					FROM tblSubtype a
+					LEFT JOIN tblassignment b ON a.cost_center = b.costcenterid
+				) c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
+				INNER JOIN [Priority] d ON a.PriorityID = d.PriorityID
+				INNER JOIN [status] e ON a.statusid = e.statusid
+				INNER JOIN [contact] f ON a.contactid = f.contactid
+				INNER JOIN [relation] g ON a.relationid = g.relationid
+				WHERE %s
+				
+				UNION ALL
+				
+				SELECT a.ticketno
+				FROM [Case_NewCustomer] a
+				INNER JOIN tbltype b ON a.TypeID = b.TypeID
+				INNER JOIN (
+					SELECT a.*, 
+						CASE 
+							WHEN b.isactive = 1 AND b.isactive_alternate = 0 THEN b.employeeid
+							WHEN b.isactive = 0 AND b.isactive_alternate = 1 THEN b.employeeid_alternate
+							ELSE b.employeeid
+						END AS employeeid
+					FROM tblSubtype a
+					LEFT JOIN tblassignment b ON a.cost_center = b.costcenterid
+				) c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
+				INNER JOIN [Priority] d ON a.PriorityID = d.PriorityID
+				INNER JOIN [status] e ON a.statusid = e.statusid
+				INNER JOIN [contact] f ON a.contactid = f.contactid
+				INNER JOIN [relation] g ON a.relationid = g.relationid
+				WHERE %s
+			) AS a;
+
+			SELECT *
+			FROM (
+				SELECT ROW_NUMBER() OVER (ORDER BY RIGHT(a.ticketno, 3) desc) AS 'RowNumber', *
+				FROM (
+					SELECT 
+						a.flagcompany, a.ticketno, a.agreementno, a.applicationid, a.customerid, 
+						a.typeid, b.description AS typedescriontion,
+						a.subtypeid, c.SubDescription AS typesubdescriontion, a.priorityid, 
+						d.Description AS prioritydescription, 
+						a.statusid, e.statusname, e.description AS statusdescription, 
+						a.customername, a.branchid, a.description, a.phoneno, a.email, 
+						u.real_name AS usrupd,
+						@jml AS jml, f.contactid, f.Description AS contactdescription, 
+						c.employeeid, a.relationid, g.description AS relationdescription, 
+						a.relationname, dbo.FnGetFullBranchName(a.branchid) AS cabang,
+						'CS HO' AS channel, CONVERT(varchar, a.foragingdays, 106) AS foragingdays,
+						FORMAT(dbo.getTanggalPenyelesaian(a.ticketno), 'dd MMM yyyy') AS tanggalpenyelesaian,
+						dbo.getWaktuPenyelesaian(a.ticketno) AS waktupenyelesaian,
+						CASE 
+							WHEN xx.statusid = 5 
+							THEN FORMAT(xx.dtmupd, 'dd MMM yyyy') 
+							ELSE '' 
+						END AS tgl_ext,
+						FORMAT(CONVERT(DATE, a.date_cr), 'dd MMM yyyy') AS date_cr
+					FROM [Case] a
+					INNER JOIN tbltype b ON a.TypeID = b.TypeID
+					INNER JOIN (
+						SELECT a.*, 
+							CASE 
+								WHEN b.isactive = 1 AND b.isactive_alternate = 0 THEN b.employeeid
+								WHEN b.isactive = 0 AND b.isactive_alternate = 1 THEN b.employeeid_alternate
+								ELSE b.employeeid
+							END AS employeeid
+						FROM tblSubtype a
+						LEFT JOIN tblassignment b ON a.cost_center = b.costcenterid
+					) c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
+					INNER JOIN [Priority] d ON a.PriorityID = d.PriorityID
+					INNER JOIN [status] e ON a.statusid = e.statusid
+					INNER JOIN [contact] f ON a.contactid = f.contactid
+					INNER JOIN [relation] g ON a.relationid = g.relationid
+					LEFT JOIN [Portal_EXT].[dbo].[users] u ON a.usrupd = u.user_name
+					LEFT JOIN (
+						SELECT a.statusid, a.ticketno, a.dtmupd, b.StatusName
+						FROM Case_History a
+						LEFT JOIN Status b ON a.statusid = b.StatusID
+						WHERE b.StatusID = 5
+					) xx ON a.ticketno = xx.ticketno 
+					WHERE %s
+					
+					UNION
+					SELECT 
+						a.flagcompany, a.ticketno, a.agreementno, a.applicationid, a.customerid, 
+						a.typeid, b.description AS typedescriontion,
+						a.subtypeid, c.SubDescription AS typesubdescriontion, a.priorityid, 
+						d.Description AS prioritydescription, 
+						a.statusid, e.statusname, e.description AS statusdescription, 
+						a.customername, a.branchid, a.description, a.phoneno, a.email, 
+						u.real_name AS usrupd,
+						@jml AS jml, f.contactid, f.Description AS contactdescription, 
+						c.employeeid, a.relationid, g.description AS relationdescription, 
+						a.relationname, dbo.FnGetFullBranchName(a.branchid) AS cabang,
+						'CS HO' AS channel, CONVERT(varchar, a.foragingdays, 106) AS foragingdays,
+						FORMAT(dbo.getTanggalPenyelesaian(a.ticketno), 'dd MMM yyyy') AS tanggalpenyelesaian,
+						dbo.getWaktuPenyelesaian(a.ticketno) AS waktupenyelesaian,
+						CASE 
+							WHEN xx.StatusName = 'Extend' 
+							THEN FORMAT(xx.dtmupd, 'dd MMM yyyy') 
+							ELSE '' 
+						END AS tgl_ext,
+						FORMAT(CONVERT(DATE, a.date_cr), 'dd MMM yyyy') AS date_cr
+					FROM [Case_NewCustomer] a
+					INNER JOIN tbltype b ON a.TypeID = b.TypeID
+					INNER JOIN (
+						SELECT a.*, 
+							CASE 
+								WHEN b.isactive = 1 AND b.isactive_alternate = 0 THEN b.employeeid
+								WHEN b.isactive = 0 AND b.isactive_alternate = 1 THEN b.employeeid_alternate
+								ELSE b.employeeid
+							END AS employeeid
+						FROM tblSubtype a
+						LEFT JOIN tblassignment b ON a.cost_center = b.costcenterid
+					) c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
+					INNER JOIN [Priority] d ON a.PriorityID = d.PriorityID
+					INNER JOIN [status] e ON a.statusid = e.statusid
+					INNER JOIN [contact] f ON a.contactid = f.contactid
+					INNER JOIN [relation] g ON a.relationid = g.relationid
+					LEFT JOIN [Portal_EXT].[dbo].[users] u ON a.usrupd = u.user_name
+					LEFT JOIN (
+						SELECT a.statusid, a.ticketno, b.StatusName, a.dtmupd
+						FROM Case_History a
+						LEFT JOIN Status b ON a.statusid = b.StatusID
+						WHERE b.StatusName = 'Extend'
+					) xx ON a.ticketno = xx.ticketno
+					WHERE %s 
+				) AS a
+			) AS a
+			where RowNumber>%d and RowNumber<=%d order by a.foragingdays desc
+	`, src, src, src, src, start, limit)
+
+	var cases []map[string]interface{}
+	if err := config.DB.Raw(sqlQuery).Scan(&cases).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch case data"})
+		return
+	}
+
+	// Execute the query
+	rows, err := config.DB.Raw(sqlQuery).Rows()
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	// Create a new Excel file
+	f := excelize.NewFile()
+	sheetName := "Sheet1"
+	index, err := f.NewSheet(sheetName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create new sheet: " + err.Error()})
+		return
+	}
+	f.SetActiveSheet(index)
+
+	// Write headers to the Excel file
+	headers := []string{"FlagCompany", "TicketNo", "AgreementNo", "ApplicationID", "CustomerID", "TypeID", "TypeDescription", "SubTypeID", "SubTypeDescription", "PriorityID", "PriorityDescription", "StatusID", "StatusName", "StatusDescription", "CustomerName", "BranchID", "Description", "PhoneNo", "Email", "UsrUpd", "Jml", "ContactID", "ContactDescription", "EmployeeID", "RelationID", "RelationDescription", "RelationName", "Cabang", "Channel", "ForagingDays", "TanggalPenyelesaian", "WaktuPenyelesaian", "TglExt", "DateCR"}
+	for col, header := range headers {
+		cell := fmt.Sprintf("%c1", 'A'+col)
+		f.SetCellValue(sheetName, cell, header)
+	}
+
+	// Write data to the Excel file
+	rowIndex := 2
+	for rows.Next() {
+		var (
+			flagCompany, ticketNo, agreementNo, applicationID, customerID, typeID, typeDescription, subTypeID, subTypeDescription, priorityID, priorityDescription, statusID, statusName, statusDescription, customerName, branchID, description, phoneNo, email, usrUpd, jml, contactID, contactDescription, employeeID, relationID, relationDescription, relationName, cabang, channel, foragingDays, tanggalPenyelesaian, waktuPenyelesaian, tglExt, dateCR string
+		)
+		if err := rows.Scan(&flagCompany, &ticketNo, &agreementNo, &applicationID, &customerID, &typeID, &typeDescription, &subTypeID, &subTypeDescription, &priorityID, &priorityDescription, &statusID, &statusName, &statusDescription, &customerName, &branchID, &description, &phoneNo, &email, &usrUpd, &jml, &contactID, &contactDescription, &employeeID, &relationID, &relationDescription, &relationName, &cabang, &channel, &foragingDays, &tanggalPenyelesaian, &waktuPenyelesaian, &tglExt, &dateCR); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to scan row: " + err.Error()})
+			return
+		}
+
+		// Write row data to the Excel file
+		rowData := []interface{}{flagCompany, ticketNo, agreementNo, applicationID, customerID, typeID, typeDescription, subTypeID, subTypeDescription, priorityID, priorityDescription, statusID, statusName, statusDescription, customerName, branchID, description, phoneNo, email, usrUpd, jml, contactID, contactDescription, employeeID, relationID, relationDescription, relationName, cabang, channel, foragingDays, tanggalPenyelesaian, waktuPenyelesaian, tglExt, dateCR}
+		for col, data := range rowData {
+			cell := fmt.Sprintf("%c%d", 'A'+col, rowIndex)
+			f.SetCellValue(sheetName, cell, data)
+		}
+		rowIndex++
+	}
+
+	// Save the Excel file
+	fileName := "export.xlsx"
+	if err := f.SaveAs(fileName); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save Excel file: " + err.Error()})
+		return
+	}
+
+	// Serve the file for download
+	c.FileAttachment(fileName, fileName)
 }
