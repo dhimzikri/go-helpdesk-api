@@ -68,8 +68,8 @@ func HistoryInfo(c *gin.Context) {
 	// Construct the query conditions
 	condition := config.DB.Table("case_history a").
 		Joins("INNER JOIN [status] e ON a.statusid = e.statusid").
-		Joins("LEFT JOIN [PORTAL_EXT].[dbo].[users] u ON a.usrupd = u.user_name").
-		Where("ticketno = ? AND a.usrupd IN (?)", ticketno, config.DB.Table("[PORTAL_EXT].[dbo].[users]").Select("user_name").
+		Joins("LEFT JOIN [PORTAL_EXT_UAT].[dbo].[users] u ON a.usrupd = u.user_name").
+		Where("ticketno = ? AND a.usrupd IN (?)", ticketno, config.DB2.Table("users").Select("user_name").
 			Where("real_name LIKE ?", "%"+query+"%"))
 
 	// Apply additional filter if query and column are provided
