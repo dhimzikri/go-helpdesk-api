@@ -1,10 +1,8 @@
 package controllers
 
 import (
-	"fmt"
 	"golang-sqlserver-app/config"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -85,79 +83,5 @@ func GetBranchID(c *gin.Context) {
 		"success": true,
 		"total":   len(results),
 		"data":    results,
-	})
-}
-
-func GetHistory(c *gin.Context) {
-	// Parse query parameters
-	query := c.Query("query")       // e.g., ?query=some_value
-	col := c.Query("col")           // e.g., ?col=name
-	ticketno := c.Query("ticketno") // e.g., ?col=name
-
-	// Base query with UNION
-	sqlStr := `
-            SELECT 
-                a.id,
-                a.ticketno,
-                a.description,
-                a.statusid,
-                a.usrupd,
-                a.dtmupd,
-                e.statusname,
-                e.statusid,
-                u.real_name
-            FROM case_history a
-            INNER JOIN status e ON a.statusid = e.statusid
-            LEFT JOIN portal_ext.dbo.users u ON a.usrupd = u.user_name
-            WHERE a.ticketno = ? AND a.usrupd IN (
-                SELECT user_name 
-                FROM portal_ext.dbo.users WITH (NOLOCK)
-                WHERE real_name LIKE ?
-            )`
-
-	// Add filtering if query and col are provided
-	// Add additional column filter if provided
-	if query != "" && col != "" {
-		sqlStr += fmt.Sprintf(" AND %s LIKE ?", col)
-	}
-	sqlStr += " ORDER BY CAST(a.id AS INTEGER)"
-
-	// Execute the query
-	var results []map[string]interface{}
-	var err error
-
-	if query != "" && col != "" {
-		err = config.DB.Raw(sqlStr, ticketno, "%"+query+"%", "%"+query+"%").Scan(&results).Error
-	} else {
-		err = config.DB.Raw(sqlStr, ticketno, "%"+query+"%").Scan(&results).Error
-	}
-
-	if err != nil {
-		c.JSON(500, gin.H{
-			"success": false,
-			"error":   err.Error(),
-		})
-		return
-	}
-	lowercaseResults := make([]map[string]interface{}, len(results))
-	for i, result := range results {
-		lowercaseMap := make(map[string]interface{})
-		for key, value := range result {
-			lowercaseMap[strings.ToLower(key)] = value
-		}
-		lowercaseResults[i] = lowercaseMap
-	}
-
-	// Check if any data was retrieved
-	if len(lowercaseResults) == 0 {
-		c.JSON(http.StatusOK, gin.H{"success": false, "data": []map[string]interface{}{}})
-		return
-	}
-
-	// Return the lowercase results as JSON
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"total":   len(lowercaseResults),
-		"data":    lowercaseResults,
 	})
 }
