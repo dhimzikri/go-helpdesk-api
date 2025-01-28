@@ -64,6 +64,6 @@ func SetupRoutes(r *gin.Engine) {
 
 		// Inbox and Hist
 		props.GET("/getJoinCases", controllers.GetJoinCases)
-		props.GET("/getHistInfo", controllers.HistoryInfo)
+		props.GET("/getHistInfo", controllers.GetHistory)
 	}
 }
