@@ -69,7 +69,7 @@ func GetCase(c *gin.Context) {
 		c.JSON(http.StatusOK, cachedData)
 		return
 	}
-	email := "a.email"
+	// email_ := "a.email_"
 	// Build SQL query for counting total records
 	sqlCount := fmt.Sprintf(`
 		SELECT COUNT(*)
@@ -109,7 +109,7 @@ func GetCase(c *gin.Context) {
 		WHERE %s
 		ORDER BY RIGHT(a.ticketno, 3) DESC
 		OFFSET %d ROWS FETCH NEXT %d ROWS ONLY
-	`, email, whereClause, offset, limitNum)
+	`, whereClause, offset, limitNum)
 
 	var cases []map[string]interface{}
 	if err := config.DB.Raw(sqlQuery).Scan(&cases).Error; err != nil {
