@@ -27,13 +27,13 @@ func GetHistory(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.Query("limit"))
 
 	// Get user from session
-	userid := "8023" // Assuming you have middleware setting this
+	userid := c.GetString("user_name") // Assuming you have middleware setting this
 
 	var src string
 	if userid == "admin" || readHeadCS(userid) { // You'll need to implement readHeadCS function
 		src = fmt.Sprintf("CONVERT(DATE, a.dtmupd) >= '%s' and CONVERT(DATE, a.dtmupd) <= '%s'", startDate, endDate)
 	} else {
-		src = fmt.Sprintf("0=0 and a.dtmupd >= '%s' and a.dtmupd < dateadd(day, 1, '%s')", startDate, endDate)
+		src = fmt.Sprintf("0=0 and a.dtmupd >= '%s' and a.dtmupd < dateadd(day, 1, '%s') and a.usrupd = '%s'", startDate, endDate, userid)
 	}
 
 	if query != "" && col != "" {
@@ -48,76 +48,76 @@ func GetHistory(c *gin.Context) {
 		c.JSON(http.StatusOK, cachedData)
 		return
 	}
-	// Email_ := "a.Email_"
+	// email_ := "a.email_"
 
 	// Build SQL query for fetching paginated data
 	sqlQuery := fmt.Sprintf(`SET NOCOUNT ON;
 
 			DECLARE @jml AS int;
 
-			SELECT @jml = COUNT(a.TicketNo)
+			SELECT @jml = COUNT(a.ticketno)
 			FROM (
-				SELECT a.TicketNo
+				SELECT a.ticketno
 				FROM [Case] a
 				INNER JOIN tbltype b ON a.TypeID = b.TypeID
 				INNER JOIN (
 					SELECT a.*, 
 						CASE 
-							WHEN b.isactive = 1 AND b.isactive_alternate = 0 THEN b.EmployeeID
-							WHEN b.isactive = 0 AND b.isactive_alternate = 1 THEN b.EmployeeID_alternate
-							ELSE b.EmployeeID
-						END AS EmployeeID
+							WHEN b.isactive = 1 AND b.isactive_alternate = 0 THEN b.employeeid
+							WHEN b.isactive = 0 AND b.isactive_alternate = 1 THEN b.employeeid_alternate
+							ELSE b.employeeid
+						END AS employeeid
 					FROM tblSubtype a
 					LEFT JOIN tblassignment b ON a.cost_center = b.costcenterid
 				) c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
 				INNER JOIN [Priority] d ON a.PriorityID = d.PriorityID
-				INNER JOIN [status] e ON a.StatusID = e.StatusID
-				INNER JOIN [contact] f ON a.ContactID = f.ContactID
-				INNER JOIN [relation] g ON a.RelationID = g.RelationID
+				INNER JOIN [status] e ON a.statusid = e.statusid
+				INNER JOIN [contact] f ON a.contactid = f.contactid
+				INNER JOIN [relation] g ON a.relationid = g.relationid
 				WHERE %s
 				
 				UNION ALL
 				
-				SELECT a.TicketNo
+				SELECT a.ticketno
 				FROM [Case_NewCustomer] a
 				INNER JOIN tbltype b ON a.TypeID = b.TypeID
 				INNER JOIN (
 					SELECT a.*, 
 						CASE 
-							WHEN b.isactive = 1 AND b.isactive_alternate = 0 THEN b.EmployeeID
-							WHEN b.isactive = 0 AND b.isactive_alternate = 1 THEN b.EmployeeID_alternate
-							ELSE b.EmployeeID
-						END AS EmployeeID
+							WHEN b.isactive = 1 AND b.isactive_alternate = 0 THEN b.employeeid
+							WHEN b.isactive = 0 AND b.isactive_alternate = 1 THEN b.employeeid_alternate
+							ELSE b.employeeid
+						END AS employeeid
 					FROM tblSubtype a
 					LEFT JOIN tblassignment b ON a.cost_center = b.costcenterid
 				) c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
 				INNER JOIN [Priority] d ON a.PriorityID = d.PriorityID
-				INNER JOIN [status] e ON a.StatusID = e.StatusID
-				INNER JOIN [contact] f ON a.ContactID = f.ContactID
-				INNER JOIN [relation] g ON a.RelationID = g.RelationID
+				INNER JOIN [status] e ON a.statusid = e.statusid
+				INNER JOIN [contact] f ON a.contactid = f.contactid
+				INNER JOIN [relation] g ON a.relationid = g.relationid
 				WHERE %s
 			) AS a;
 
 			SELECT *
 			FROM (
-				SELECT ROW_NUMBER() OVER (ORDER BY RIGHT(a.TicketNo, 3) desc) AS 'RowNumber', *
+				SELECT ROW_NUMBER() OVER (ORDER BY RIGHT(a.ticketno, 3) desc) AS 'RowNumber', *
 				FROM (
 					SELECT 
-						a.FlagCompany, a.TicketNo, a.AgreementNo, a.ApplicationID, a.CustomerID, 
-						a.TypeID, b.description AS typedescriontion,
-						a.SubTypeID, c.SubDescription AS typesubdescriontion, a.PriorityID, 
-						d.Description AS PriorityDescription, 
-						a.StatusID, e.StatusName, e.description AS StatusDescription, 
-						a.CustomerName, a.BranchID, a.description, a.PhoneNo, a.Email, 
-						u.real_name AS UsrUpd,
-						@jml AS jml, f.ContactID, f.Description AS ContactDescription, 
-						c.EmployeeID, a.RelationID, g.description AS RelationDescription, 
-						a.RelationName, dbo.FnGetFullBranchName(a.BranchID) AS cabang,
-						'CS HO' AS channel, CONVERT(varchar, a.ForAgingDays, 106) AS ForAgingDays,
-						FORMAT(dbo.getTanggalPenyelesaian(a.TicketNo), 'dd MMM yyyy') AS TanggalPenyelesaian,
-						dbo.getWaktuPenyelesaian(a.TicketNo) AS WaktuPenyelesaian,
+						a.flagcompany, a.ticketno, a.agreementno, a.applicationid, a.customerid, 
+						a.typeid, b.description AS typedescriontion,
+						a.subtypeid, c.SubDescription AS typesubdescriontion, a.priorityid, 
+						d.Description AS prioritydescription, 
+						a.statusid, e.statusname, e.description AS statusdescription, 
+						a.customername, a.branchid, a.description, a.phoneno, a.email, 
+						u.real_name AS usrupd,
+						@jml AS jml, f.contactid, f.Description AS contactdescription, 
+						c.employeeid, a.relationid, g.description AS relationdescription, 
+						a.relationname, dbo.FnGetFullBranchName(a.branchid) AS cabang,
+						'CS HO' AS channel, CONVERT(varchar, a.foragingdays, 106) AS foragingdays,
+						FORMAT(dbo.getTanggalPenyelesaian(a.ticketno), 'dd MMM yyyy') AS tanggalpenyelesaian,
+						dbo.getWaktuPenyelesaian(a.ticketno) AS waktupenyelesaian,
 						CASE 
-							WHEN xx.StatusID = 5 
+							WHEN xx.statusid = 5 
 							THEN FORMAT(xx.dtmupd, 'dd MMM yyyy') 
 							ELSE '' 
 						END AS tgl_ext,
@@ -127,41 +127,41 @@ func GetHistory(c *gin.Context) {
 					INNER JOIN (
 						SELECT a.*, 
 							CASE 
-								WHEN b.isactive = 1 AND b.isactive_alternate = 0 THEN b.EmployeeID
-								WHEN b.isactive = 0 AND b.isactive_alternate = 1 THEN b.EmployeeID_alternate
-								ELSE b.EmployeeID
-							END AS EmployeeID
+								WHEN b.isactive = 1 AND b.isactive_alternate = 0 THEN b.employeeid
+								WHEN b.isactive = 0 AND b.isactive_alternate = 1 THEN b.employeeid_alternate
+								ELSE b.employeeid
+							END AS employeeid
 						FROM tblSubtype a
 						LEFT JOIN tblassignment b ON a.cost_center = b.costcenterid
 					) c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
 					INNER JOIN [Priority] d ON a.PriorityID = d.PriorityID
-					INNER JOIN [status] e ON a.StatusID = e.StatusID
-					INNER JOIN [contact] f ON a.ContactID = f.ContactID
-					INNER JOIN [relation] g ON a.RelationID = g.RelationID
-					LEFT JOIN [Portal_EXT].[dbo].[users] u ON a.UsrUpd = u.user_name
+					INNER JOIN [status] e ON a.statusid = e.statusid
+					INNER JOIN [contact] f ON a.contactid = f.contactid
+					INNER JOIN [relation] g ON a.relationid = g.relationid
+					LEFT JOIN [Portal_EXT].[dbo].[users] u ON a.usrupd = u.user_name
 					LEFT JOIN (
-						SELECT a.StatusID, a.TicketNo, a.dtmupd, b.StatusName
+						SELECT a.statusid, a.ticketno, a.dtmupd, b.StatusName
 						FROM Case_History a
-						LEFT JOIN Status b ON a.StatusID = b.StatusID
+						LEFT JOIN Status b ON a.statusid = b.StatusID
 						WHERE b.StatusID = 5
-					) xx ON a.TicketNo = xx.ticketno 
+					) xx ON a.ticketno = xx.ticketno 
 					WHERE %s
 					
 					UNION
 					SELECT 
-						a.FlagCompany, a.TicketNo, a.AgreementNo, a.ApplicationID, a.CustomerID, 
-						a.TypeID, b.description AS typedescriontion,
-						a.SubTypeID, c.SubDescription AS typesubdescriontion, a.PriorityID, 
-						d.Description AS PriorityDescription, 
-						a.StatusID, e.StatusName, e.description AS StatusDescription, 
-						a.CustomerName, a.BranchID, a.description, a.PhoneNo, a.Email, 
-						u.real_name AS UsrUpd,
-						@jml AS jml, f.ContactID, f.Description AS ContactDescription, 
-						c.EmployeeID, a.RelationID, g.description AS RelationDescription, 
-						a.RelationName, dbo.FnGetFullBranchName(a.BranchID) AS cabang,
-						'CS HO' AS channel, CONVERT(varchar, a.ForAgingDays, 106) AS ForAgingDays,
-						FORMAT(dbo.getTanggalPenyelesaian(a.TicketNo), 'dd MMM yyyy') AS TanggalPenyelesaian,
-						dbo.getWaktuPenyelesaian(a.TicketNo) AS WaktuPenyelesaian,
+						a.flagcompany, a.ticketno, a.agreementno, a.applicationid, a.customerid, 
+						a.typeid, b.description AS typedescriontion,
+						a.subtypeid, c.SubDescription AS typesubdescriontion, a.priorityid, 
+						d.Description AS prioritydescription, 
+						a.statusid, e.statusname, e.description AS statusdescription, 
+						a.customername, a.branchid, a.description, a.phoneno, a.email, 
+						u.real_name AS usrupd,
+						@jml AS jml, f.contactid, f.Description AS contactdescription, 
+						c.employeeid, a.relationid, g.description AS relationdescription, 
+						a.relationname, dbo.FnGetFullBranchName(a.branchid) AS cabang,
+						'CS HO' AS channel, CONVERT(varchar, a.foragingdays, 106) AS foragingdays,
+						FORMAT(dbo.getTanggalPenyelesaian(a.ticketno), 'dd MMM yyyy') AS tanggalpenyelesaian,
+						dbo.getWaktuPenyelesaian(a.ticketno) AS waktupenyelesaian,
 						CASE 
 							WHEN xx.StatusName = 'Extend' 
 							THEN FORMAT(xx.dtmupd, 'dd MMM yyyy') 
@@ -173,28 +173,28 @@ func GetHistory(c *gin.Context) {
 					INNER JOIN (
 						SELECT a.*, 
 							CASE 
-								WHEN b.isactive = 1 AND b.isactive_alternate = 0 THEN b.EmployeeID
-								WHEN b.isactive = 0 AND b.isactive_alternate = 1 THEN b.EmployeeID_alternate
-								ELSE b.EmployeeID
-							END AS EmployeeID
+								WHEN b.isactive = 1 AND b.isactive_alternate = 0 THEN b.employeeid
+								WHEN b.isactive = 0 AND b.isactive_alternate = 1 THEN b.employeeid_alternate
+								ELSE b.employeeid
+							END AS employeeid
 						FROM tblSubtype a
 						LEFT JOIN tblassignment b ON a.cost_center = b.costcenterid
 					) c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID
 					INNER JOIN [Priority] d ON a.PriorityID = d.PriorityID
-					INNER JOIN [status] e ON a.StatusID = e.StatusID
-					INNER JOIN [contact] f ON a.ContactID = f.ContactID
-					INNER JOIN [relation] g ON a.RelationID = g.RelationID
-					LEFT JOIN [Portal_EXT].[dbo].[users] u ON a.UsrUpd = u.user_name
+					INNER JOIN [status] e ON a.statusid = e.statusid
+					INNER JOIN [contact] f ON a.contactid = f.contactid
+					INNER JOIN [relation] g ON a.relationid = g.relationid
+					LEFT JOIN [Portal_EXT].[dbo].[users] u ON a.usrupd = u.user_name
 					LEFT JOIN (
-						SELECT a.StatusID, a.TicketNo, b.StatusName, a.dtmupd
+						SELECT a.statusid, a.ticketno, b.StatusName, a.dtmupd
 						FROM Case_History a
-						LEFT JOIN Status b ON a.StatusID = b.StatusID
+						LEFT JOIN Status b ON a.statusid = b.StatusID
 						WHERE b.StatusName = 'Extend'
-					) xx ON a.TicketNo = xx.ticketno
+					) xx ON a.ticketno = xx.ticketno
 					WHERE %s 
 				) AS a
 			) AS a
-			where RowNumber>%d and RowNumber<=%d order by a.ForAgingDays desc
+			where RowNumber>%d and RowNumber<=%d order by a.foragingdays desc
 	`, src, src, src, src, start, limit)
 
 	var cases []map[string]interface{}
@@ -524,7 +524,7 @@ func GetXLSX(c *gin.Context) {
 
 	headers := []string{"FlagCompany", "TicketNo", "AgreementNo", "ApplicationID", "CustomerID", "TypeID", "TypeDescription",
 		"SubTypeID", "SubTypeDescription", "PriorityID", "PriorityDescription", "StatusID", "StatusName", "StatusDescription",
-		"CustomerName", "BranchID", "Description", "PhoneNo", "Email", "UsrUpd", "Jml", "ContactID", "ContactDescription",
+		"CustomerName", "BranchID", "Description", "PhoneNo", "Email", "UsrUpd", "ContactID", "ContactDescription",
 		"EmployeeID", "RelationID", "RelationDescription", "RelationName", "Cabang", "Channel", "ForAgingDays",
 		"TanggalPenyelesaian", "WaktuPenyelesaian", "TglExt", "DateCr"}
 
@@ -543,7 +543,7 @@ func GetXLSX(c *gin.Context) {
 			caseData.TypeID, caseData.TypeDescription, caseData.SubTypeID, caseData.SubTypeDescription,
 			caseData.PriorityID, caseData.PriorityDescription, caseData.StatusID, caseData.StatusName, caseData.StatusDescription,
 			caseData.CustomerName, caseData.BranchID, caseData.Description, caseData.PhoneNo, caseData.Email, caseData.UsrUpd,
-			caseData.Jml, caseData.ContactID, caseData.ContactDescription, caseData.EmployeeID, caseData.RelationID,
+			caseData.ContactID, caseData.ContactDescription, caseData.EmployeeID, caseData.RelationID,
 			caseData.RelationDescription, caseData.RelationName, caseData.Cabang, caseData.Channel, caseData.ForAgingDays,
 			caseData.TanggalPenyelesaian, caseData.WaktuPenyelesaian, caseData.TglExt, caseData.DateCr,
 		}
