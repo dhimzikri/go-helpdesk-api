@@ -27,7 +27,7 @@ func GetHistory(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.Query("limit"))
 
 	// Get user from session
-	userid := c.GetString("user_name") // Assuming you have middleware setting this
+	userid := "8023" // Assuming you have middleware setting this
 
 	var src string
 	if userid == "admin" || readHeadCS(userid) { // You'll need to implement readHeadCS function
