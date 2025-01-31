@@ -486,7 +486,7 @@ func GetXLSX(c *gin.Context) {
 	if userid == "admin" || readHeadCS(userid) { // You'll need to implement readHeadCS function
 		src = fmt.Sprintf("CONVERT(DATE, a.dtmupd) >= '%s' and CONVERT(DATE, a.dtmupd) <= '%s'", startDate, endDate)
 	} else {
-		src = fmt.Sprintf("0=0 and a.dtmupd >= '%s' and a.dtmupd < dateadd(day, 1, '%s')", startDate, endDate)
+		src = fmt.Sprintf("0=0 and a.dtmupd >= '%s' and a.dtmupd < dateadd(day, 1, '%s') and a.usrupd='%s'", startDate, endDate, userid)
 	}
 
 	if query != "" && col != "" {
@@ -523,27 +523,9 @@ func GetXLSX(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Define headers in the correct order
-	headers := []string{
-		"Tanggal Create Tiket",
-		"Tanggal Extend",
-		"Status",
-		"Tanggal Penyelesaian",
-		"Tiket No",
-		"Nama Create Ticket",
-		"Priority",
-		"Nama Debitur",
-		"Nama Pelapor/Telepon",
-		"Relation",
-		"AgreementNo",
-		"Cabang",
-		"Type",
-		"SubType",
-		"Channel",
-		"Deskripsi",
-		"PhoneNumber",
-		"Email",
-		"Waktu Penyelesaian",
-	}
+	headers := []string{"Tanggal Create Tiket", "Tanggal Extend", "Status", "Tanggal Penyelesaian", "Tiket No", "Nama Create Ticket", "Priority",
+		"Nama Debitur", "Nama Pelapor/Telepon", "Relation", "AgreementNo", "Cabang", "Type", "SubType", "Channel", "Deskripsi", "PhoneNumber", "Email",
+		"Waktu Penyelesaian"}
 
 	// Set headers in the first row
 	for colIndex, header := range headers {
@@ -556,27 +538,10 @@ func GetXLSX(c *gin.Context) {
 		row := rowIndex + 2 // Data starts from the second row
 
 		// Ensure the order of values matches the headers
-		values := []interface{}{
-			caseData.ForAgingDays,
-			caseData.TglExt,
-			caseData.StatusName,
-			caseData.TanggalPenyelesaian,
-			caseData.TicketNo,
-			caseData.UsrUpd,
-			caseData.PriorityDescription,
-			caseData.CustomerName,
-			caseData.RelationName,
-			caseData.RelationDescription,
-			caseData.AgreementNo,
-			caseData.Cabang,
-			caseData.TypeDescription,
-			caseData.SubTypeDescription,
-			caseData.Channel,
-			caseData.Description,
-			caseData.PhoneNo,
-			caseData.Email,
-			caseData.WaktuPenyelesaian,
-		}
+		values := []interface{}{caseData.ForAgingDays, caseData.TglExt, caseData.StatusName, caseData.TanggalPenyelesaian, caseData.TicketNo,
+			caseData.UsrUpd, caseData.PriorityDescription, caseData.CustomerName, caseData.RelationName, caseData.RelationDescription,
+			caseData.AgreementNo, caseData.Cabang, caseData.TypeDescription, caseData.SubTypeDescription, caseData.Channel, caseData.Description,
+			caseData.PhoneNo, caseData.Email, caseData.WaktuPenyelesaian}
 
 		for colIndex, value := range values {
 			cell, _ := excelize.CoordinatesToCellName(colIndex+1, row)
