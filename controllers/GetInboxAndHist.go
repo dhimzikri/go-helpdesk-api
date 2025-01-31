@@ -125,7 +125,7 @@ func buildCaseQuery(whereClause string) string {
 			e.description AS statusdescription, a.customername, a.branchid, a.description, a.phoneno,
 			a.email, a.usrupd, a.dtmupd, a.date_cr, f.contactid, f.Description AS contactdescription,
 			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.foragingdays,
-			dbo.FnGetFullBranchName(a.branchid) as cabang,
+			dbo.FnGetFullBranchName(a.branchid) as cabang, u.real_name,
 			CASE 
 				WHEN d.PriorityID = 1 THEN
 					CASE 
@@ -170,7 +170,7 @@ func buildCaseNewCustomerQuery(whereClause string) string {
 			e.description AS statusdescription, a.customername, a.branchid, a.description, a.phoneno,
 			a.email, a.usrupd, a.dtmupd, a.date_cr, f.contactid, f.Description AS contactdescription,
 			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.foragingdays,
-			dbo.FnGetFullBranchName(a.branchid) as cabang,
+			dbo.FnGetFullBranchName(a.branchid) as cabang, u.real_name,
 			CASE 
 				WHEN d.PriorityID = 1 THEN
 					CASE 
