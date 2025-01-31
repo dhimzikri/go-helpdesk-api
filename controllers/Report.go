@@ -522,11 +522,28 @@ func GetXLSX(c *gin.Context) {
 	sheetName := "Cases"
 	f.SetSheetName("Sheet1", sheetName)
 
-	headers := []string{"FlagCompany", "TicketNo", "AgreementNo", "ApplicationID", "CustomerID", "TypeID", "TypeDescription",
-		"SubTypeID", "SubTypeDescription", "PriorityID", "PriorityDescription", "StatusID", "StatusName", "StatusDescription",
-		"CustomerName", "BranchID", "Description", "PhoneNo", "Email", "UsrUpd", "ContactID", "ContactDescription",
-		"EmployeeID", "RelationID", "RelationDescription", "RelationName", "Cabang", "Channel", "ForAgingDays",
-		"TanggalPenyelesaian", "WaktuPenyelesaian", "TglExt", "DateCr"}
+	// Define headers in the correct order
+	headers := []string{
+		"Tanggal Create Tiket",
+		"Tanggal Extend",
+		"Status",
+		"Tanggal Penyelesaian",
+		"Tiket No",
+		"Nama Create Ticket",
+		"Priority",
+		"Nama Debitur",
+		"Nama Pelapor/Telepon",
+		"Relation",
+		"AgreementNo",
+		"Cabang",
+		"Type",
+		"SubType",
+		"Channel",
+		"Deskripsi",
+		"PhoneNumber",
+		"Email",
+		"Waktu Penyelesaian",
+	}
 
 	// Set headers in the first row
 	for colIndex, header := range headers {
@@ -538,14 +555,27 @@ func GetXLSX(c *gin.Context) {
 	for rowIndex, caseData := range cases {
 		row := rowIndex + 2 // Data starts from the second row
 
+		// Ensure the order of values matches the headers
 		values := []interface{}{
-			caseData.FlagCompany, caseData.TicketNo, caseData.AgreementNo, caseData.ApplicationID, caseData.CustomerID,
-			caseData.TypeID, caseData.TypeDescription, caseData.SubTypeID, caseData.SubTypeDescription,
-			caseData.PriorityID, caseData.PriorityDescription, caseData.StatusID, caseData.StatusName, caseData.StatusDescription,
-			caseData.CustomerName, caseData.BranchID, caseData.Description, caseData.PhoneNo, caseData.Email, caseData.UsrUpd,
-			caseData.ContactID, caseData.ContactDescription, caseData.EmployeeID, caseData.RelationID,
-			caseData.RelationDescription, caseData.RelationName, caseData.Cabang, caseData.Channel, caseData.ForAgingDays,
-			caseData.TanggalPenyelesaian, caseData.WaktuPenyelesaian, caseData.TglExt, caseData.DateCr,
+			caseData.ForAgingDays,
+			caseData.TglExt,
+			caseData.StatusName,
+			caseData.TanggalPenyelesaian,
+			caseData.TicketNo,
+			caseData.UsrUpd,
+			caseData.PriorityDescription,
+			caseData.CustomerName,
+			caseData.RelationName,
+			caseData.RelationDescription,
+			caseData.AgreementNo,
+			caseData.Cabang,
+			caseData.TypeDescription,
+			caseData.SubTypeDescription,
+			caseData.Channel,
+			caseData.Description,
+			caseData.PhoneNo,
+			caseData.Email,
+			caseData.WaktuPenyelesaian,
 		}
 
 		for colIndex, value := range values {
