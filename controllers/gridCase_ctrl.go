@@ -8,16 +8,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/patrickmn/go-cache"
 	"gopkg.in/gomail.v2"
 	"gorm.io/gorm"
 )
-
-// GetCases retrieves cases with pagination, search, and total count
-var caseCache = cache.New(5*time.Minute, 10*time.Minute)
 
 func GetCase(c *gin.Context) {
 	// Skip session logic - No need to retrieve user_name from session
@@ -74,7 +69,7 @@ func GetCase(c *gin.Context) {
 		c.JSON(http.StatusOK, cachedData)
 		return
 	}
-
+	// email_ := "a.email_"
 	// Build SQL query for counting total records
 	sqlCount := fmt.Sprintf(`
 		SELECT COUNT(*)
@@ -103,7 +98,7 @@ func GetCase(c *gin.Context) {
 			a.priorityid, d.Description AS prioritydescription, a.statusid, e.statusname,
 			e.description AS statusdescription, a.customername, a.branchid, a.description, a.phoneno,
 			a.email, a.usrupd, a.dtmupd, a.date_cr, f.contactid, f.Description AS contactdescription,
-			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.email_, a.foragingdays
+			a.relationid, g.description AS relationdescription, a.relationname, a.callerid, a.email_ , a.foragingdays
 		FROM [Case] a
 		INNER JOIN tbltype b ON a.TypeID = b.TypeID
 		INNER JOIN tblSubtype c ON a.SubTypeID = c.SubTypeID AND a.TypeID = c.TypeID

@@ -29,3 +29,40 @@ type CaseRequest struct {
 	Flag           string    `json:"Flag"`
 	SubDescription string    `json:"SubDescription" binding:"required" gorm:"column:typesubdescription"`
 }
+
+type CaseData struct {
+	FlagCompany         string
+	TicketNo            string
+	AgreementNo         string
+	ApplicationID       string
+	CustomerID          string
+	TypeID              int
+	TypeDescription     string
+	SubTypeID           int
+	SubTypeDescription  string
+	PriorityID          int
+	PriorityDescription string
+	StatusID            int
+	StatusName          string
+	StatusDescription   string
+	CustomerName        string
+	BranchID            string
+	Description         string
+	PhoneNo             string
+	Email               string
+	UsrUpd              string
+	Jml                 int
+	ContactID           int
+	ContactDescription  string
+	EmployeeID          string
+	RelationID          int
+	RelationDescription string
+	RelationName        string
+	Cabang              string
+	Channel             string
+	ForAgingDays        string
+	TanggalPenyelesaian string
+	WaktuPenyelesaian   string
+	TglExt              string
+	DateCr              string
+}

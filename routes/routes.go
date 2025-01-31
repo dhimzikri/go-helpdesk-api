@@ -49,8 +49,23 @@ func SetupRoutes(r *gin.Engine) {
 		// Props Data
 		props.GET("/getRelation", controllers.GetRelation)
 		props.POST("/addRelation", controllers.AddRelation)
-		props.GET("/getStatus", controllers.GetTblStatus)
 		props.GET("/getAgreement", controllers.AgreementNoHandler())
 		props.GET("/getContact", controllers.GetContact)
+
+		// get Assigment
+		props.GET("/getEmp", controllers.GetUsers)
+		props.GET("/getAssign", controllers.GetAssignments)
+		props.POST("/setAssign", controllers.SaveAssign)
+
+		// SetStatus and Holiday
+		props.POST("/addStatus", controllers.SaveStatus)
+		props.GET("/getStatus", controllers.GetTblStatus)
+		props.POST("/uploadXls", controllers.UploadXLS)
+
+		// Inbox and Hist
+		props.GET("/getJoinCases", controllers.GetJoinCases)
+		props.GET("/getHistInfo", controllers.GetHistory)
+		props.GET("/exportXls", controllers.GetXLSX)
+		props.GET("/exportJSON", controllers.GetJSON)
 	}
 }
